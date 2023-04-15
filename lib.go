@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math/bits"
 	"strings"
 )
 
@@ -172,7 +173,38 @@ const (
 	RegBp
 	RegSi
 	RegDi
+	RegFlags
+	RegCount
 )
+
+// Flags are described on page 22 of the manual.
+const (
+	FlagC uint16 = 1      // Carry
+	FlagP uint16 = 1 << 2 // Parity
+	FlagA uint16 = 1 << 4 // Auxiliary Carry
+	FlagZ uint16 = 1 << 6 // Zero
+	FlagS uint16 = 1 << 7 // Sign
+)
+
+func FlagString(f uint16) string {
+	switch f {
+	case FlagC:
+		return "C"
+	case FlagP:
+		return "P"
+	case FlagA:
+		return "A"
+	case FlagZ:
+		return "Z"
+	case FlagS:
+		return "S"
+	}
+	panic(nil)
+}
+
+var regFlags = [...]uint16{
+	FlagC, FlagP, FlagA, FlagZ, FlagS,
+}
 
 type RegisterWidth uint32
 
@@ -182,13 +214,49 @@ const (
 	WidthHi
 )
 
-type Registers [8]uint16
+type Registers [RegCount]uint16
 
-func (rr Registers) String() string {
+func (rr *Registers) IsSet(flag uint16) bool {
+	return rr[RegFlags]&flag > 0
+}
+
+func (rr *Registers) Flag(cond bool, flag uint16) {
+	if cond {
+		rr[RegFlags] |= flag
+	} else {
+		rr[RegFlags] &= ^flag
+	}
+}
+
+// ProcessFlags toggles all the implemented flags based on the given width and
+// value. Note that it is not possible to just take the target register and
+// pick the value from there, since some operations (cmp) do not write the
+// value back to the registers.
+func (rr *Registers) ProcessFlags(width RegisterWidth, value uint16) {
+	switch width {
+	case WidthFull:
+	case WidthLo:
+		value = (value & 0xff) << 8
+	case WidthHi:
+		value = value & 0xff
+	}
+	rr.Flag(value>>15 > 0, FlagS)
+	rr.Flag(bits.OnesCount16(value)%2 == 0, FlagP)
+	rr.Flag(value == 0, FlagZ)
+}
+
+func (rr *Registers) String() string {
 	var sb strings.Builder
 	for i := RegAx; i <= RegDi; i++ {
 		fmt.Fprintf(&sb, "%s=%d\n", OperandReg{i, WidthFull}, rr[i])
 	}
+	fmt.Fprintf(&sb, "Flags=")
+	for _, flag := range regFlags {
+		if rr.IsSet(flag) {
+			fmt.Fprintf(&sb, "%s", FlagString(flag))
+		}
+	}
+	fmt.Fprintln(&sb)
 	return sb.String()
 }
 
@@ -198,7 +266,7 @@ type Operand struct {
 }
 
 type (
-	OperandType interface{ IsOperand() }
+	OperandType interface{ OperandType() }
 	OperandReg  struct {
 		name  Register
 		width RegisterWidth
@@ -211,10 +279,10 @@ type (
 	}
 )
 
-func (_ OperandReg) IsOperand()          {}
-func (_ OperandImm) IsOperand()          {}
-func (_ OperandImmU) IsOperand()         {}
-func (_ OperandDisplacement) IsOperand() {}
+func (_ OperandReg) OperandType()          {}
+func (_ OperandImm) OperandType()          {}
+func (_ OperandImmU) OperandType()         {}
+func (_ OperandDisplacement) OperandType() {}
 
 type SizeMark uint32
 

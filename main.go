@@ -25,31 +25,34 @@ func ck(err error) {
 
 func run() error {
 	var inputFile string
-	flag.StringVar(&inputFile, "file", "listing_0044_register_movs", "input file to parse")
+	flag.StringVar(&inputFile, "file", "listing_0047_challenge_flags", "input file to parse")
 	flag.Parse()
 
+	log.Printf("Processing %q", inputFile)
+
 	inputFile = path.Join("testdata", inputFile)
-	if err := nasm(inputFile); err != nil {
+	if err := nasm(inputFile + ".asm"); err != nil {
 		return fmt.Errorf("could not assemble %s: %w", inputFile, err)
 	}
 	buf, err := ioutil.ReadFile(inputFile)
 	if err != nil {
 		return err
 	}
-	ins := decode(buf)
+
+	ins := Decode(buf)
 	PrintInstructions(os.Stdout, ins)
-	Simulate(ins)
+	regs := Simulate(ins)
+	fmt.Println(&regs)
 
 	return nil
 }
 
-func nasm(filename string) error {
-	filename = filename + ".asm"
-	cmd := exec.Command("nasm", filename)
+func nasm(file string) error {
+	cmd := exec.Command("nasm", file)
 	return cmd.Run()
 }
 
-func decode(buf []byte) []Instruction {
+func Decode(buf []byte) []Instruction {
 	var ins []Instruction
 	for ip := 0; ip < len(buf); {
 		b1, b2 := buf[ip], buf[ip+1]
@@ -59,93 +62,32 @@ func decode(buf []byte) []Instruction {
 		case o.kind == KindRmToFromRm:
 			D, W := (b1>>1)&1, b1&1
 			MOD, REG, RM := b2>>6, (b2>>3)&0b111, b2&0b111
-			switch MOD {
-			case 0b11:
-				// Register to register
-				reg := OperandReg(register(REG, W))
-				regRm := OperandReg(register(RM, W))
-				var dst, src OperandType
-				if D == 0 {
-					dst, src = regRm, reg
-				} else {
-					dst, src = reg, regRm
-				}
-				ins = append(ins, Instruction{ip, o.op, FromUnsized(dst, src)})
-				advance = 2
-			case 0b00, 0b01, 0b10:
-				// Memory to/from register
-				disp := OperandDisplacement{
-					kind: GetDisplacementKind(RM),
-				}
-				switch MOD {
-				case 0b00:
-					if RM == 0b110 {
-						// Memory-mode, direct address
-						disp.kind = DispEA
-						disp.imm = OperandImm(OperandUnsigned(buf[ip+2 : ip+4]))
-						advance = 4
-					} else {
-						// Memory-mode, no displacement
-						advance = 2
-					}
-				case 0b01:
-					// Memory-mode with 8-bit displacement
-					disp.imm = OperandSigned(buf[ip+2 : ip+3])
-					advance = 3
-				case 0b10:
-					// Memory-mode with 16-bit displacement
-					disp.imm = OperandSigned(buf[ip+2 : ip+4])
-					advance = 4
-				}
-				reg := register(REG, W)
-				var dst, src OperandType
-				if D == 0 {
-					dst, src = disp, reg
-				} else {
-					dst, src = reg, disp
-				}
-				ins = append(ins, Instruction{ip, o.op, FromUnsized(dst, src)})
-			default:
-				panic(MOD)
+			var dst, src OperandType
+			dst, advance = RmOperand(buf, ip, MOD, RM, W)
+			src = register(REG, W)
+			if D == 1 {
+				dst, src = src, dst
 			}
+			ins = append(ins, Instruction{ip, o.op, FromUnsized(dst, src)})
 		case o.kind == KindImmToRm:
 			// Immediate to register/memory
 			D, W := (b1>>1)&1, b1&1
 			MOD, RM := b2>>6, b2&0b111
-			disp := OperandDisplacement{
-				kind: GetDisplacementKind(RM),
-			}
-			var offset int
-			switch MOD {
-			case 0b00:
-				if RM == 0b110 {
-					// Memory-mode, direct address
-					disp.kind = DispEA
-					disp.imm = OperandImm(OperandUnsigned(buf[ip+2 : ip+4]))
-					offset = 4
-				} else {
-					// Memory-mode, no displacement
-					offset = 2
-				}
-			case 0b01:
-				// Memory-mode with 8-bit displacement
-				disp.imm = OperandSigned(buf[ip+2 : ip+3])
-				offset = 3
-			case 0b10:
-				// Memory-mode with 16-bit displacement
-				disp.imm = OperandSigned(buf[ip+2 : ip+4])
-				offset = 4
-			case 0b11:
-				// Register mode
-				offset = 2
-			}
 			var dst, src Operand
-			if o.op == OpMov {
+			dstOp, offset := RmOperand(buf, ip, MOD, RM, W)
+			dst.op = dstOp
+			if MOD == 0b11 {
 				dst.size = SizeNone
+			} else {
+				dst.size = SizeFrom(W)
+			}
+			switch o.op {
+			case OpMov:
 				src.size = SizeFrom(W)
 				src.op = OperandSigned(buf[ip+offset : ip+offset+1+int(W)])
 				advance = offset + 1 + int(W)
-			} else {
+			default:
+				src.size = SizeNone
 				if D == 1 {
 					src.op = OperandSigned(buf[ip+offset : ip+offset+1])
 					advance = offset + 1
@@ -153,17 +95,6 @@ func decode(buf []byte) []Instruction {
 					src.op = OperandUnsigned(buf[ip+offset : ip+offset+1+int(W)])
 					advance = offset + 1 + int(W)
 				}
-				if MOD != 0b11 {
-					dst.size = SizeFrom(W)
-				} else {
-					dst.size = SizeNone
-				}
-				src.size = SizeNone
-			}
-			if MOD == 0b11 {
-				dst.op = register(RM, W)
-			} else {
-				dst.op = disp
 			}
 			ins = append(ins, Instruction{ip, o.op, []Operand{dst, src}})
 		case o.kind == KindMemToFromAcc && o.op == OpMov:
@@ -220,6 +151,37 @@ func decode(buf []byte) []Instruction {
 	return ins
 }
 
+func RmOperand(buf []byte, ip int, MOD, RM, W byte) (OperandType, int) {
+	if MOD == 0b11 {
+		// Register to register
+		return register(RM, W), 2
+	}
+	var advance int
+	var disp OperandDisplacement
+	disp.kind = GetDisplacementKind(RM)
+	switch MOD {
+	case 0b00:
+		if RM == 0b110 {
+			// Memory-mode, direct address
+			disp.kind = DispEA
+			disp.imm = OperandImm(OperandUnsigned(buf[ip+2 : ip+4]))
+			advance = 4
+		} else {
+			// Memory-mode, no displacement
+			advance = 2
+		}
+	case 0b01:
+		// Memory-mode with 8-bit displacement
+		disp.imm = OperandSigned(buf[ip+2 : ip+3])
+		advance = 3
+	case 0b10:
+		// Memory-mode with 16-bit displacement
+		disp.imm = OperandSigned(buf[ip+2 : ip+4])
+		advance = 4
+	}
+	return disp, advance
+}
+
 func PrintInstructions(w io.Writer, ins []Instruction) {
 	fmt.Fprintln(w, "bits 16")
 	fmt.Fprintln(w)
@@ -241,22 +203,64 @@ func PrintInstructions(w io.Writer, ins []Instruction) {
 	}
 }
 
-func Simulate(ins []Instruction) {
+func Simulate(ins []Instruction) Registers {
 	var regs Registers
 	for _, in := range ins {
-		if in.op == OpMov {
+		switch in.op {
+		case OpMov:
 			switch dst := in.operands[0].op.(type) {
 			case OperandReg:
-				switch src := in.operands[1].op.(type) {
-				case OperandImm:
-					regs[dst.name] = uint16(src)
-				case OperandImmU:
-					regs[dst.name] = uint16(src)
-				case OperandReg:
-					regs[dst.name] = regs[src.name]
+				imm := uint16(immediate(&regs, in.operands[1]))
+				regs[dst.name] = applyOp(opMov, dst.width, regs[dst.name], imm)
+			}
+		case OpAdd:
+			switch dst := in.operands[0].op.(type) {
+			case OperandReg:
+				imm := immediate(&regs, in.operands[1])
+				regs[dst.name] = applyOp(opAdd, dst.width, regs[dst.name], imm)
+				regs.ProcessFlags(dst.width, regs[dst.name])
+			}
+		case OpSub, OpCmp:
+			switch dst := in.operands[0].op.(type) {
+			case OperandReg:
+				imm := immediate(&regs, in.operands[1])
+				out := applyOp(opSub, dst.width, regs[dst.name], imm)
+				regs.ProcessFlags(dst.width, out)
+				// Cmp is implemented like sub but does not write it's result.
+				if in.op != OpCmp {
+					regs[dst.name] = out
 				}
 			}
 		}
 	}
-	fmt.Printf("%v\n", regs)
+	return regs
+}
+
+func applyOp[T ~uint16](f func(T, T) T, width RegisterWidth, a, b T) T {
+	switch width {
+	case WidthFull:
+		return f(a, b)
+	case WidthLo:
+		return f(a&0xff, b&0xff) | a&0xff<<8
+	case WidthHi:
+		return f(a&0xff, b&0xff)<<8 | a&0xff
+	}
+	panic(width)
+}
+
+func opMov(a, b uint16) uint16 { return b }
+func opAdd(a, b uint16) uint16 { return a + b }
+func opSub(a, b uint16) uint16 { return a - b }
+
+func immediate(regs *Registers, reg Operand) uint16 {
+	switch x := reg.op.(type) {
+	case OperandImm:
+		return uint16(x)
+	case OperandImmU:
+		return uint16(x)
+	case OperandReg:
+		return uint16(regs[x.name])
+	default:
+		panic(x)
+	}
 }
