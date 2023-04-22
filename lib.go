@@ -173,6 +173,7 @@ const (
 	RegBp
 	RegSi
 	RegDi
+	RegIp
 	RegFlags
 	RegCount
 )
@@ -184,6 +185,7 @@ const (
 	FlagA uint16 = 1 << 4 // Auxiliary Carry
 	FlagZ uint16 = 1 << 6 // Zero
 	FlagS uint16 = 1 << 7 // Sign
+	FlagO uint16 = 1 << 8 // Overflow
 )
 
 func FlagString(f uint16) string {
@@ -198,12 +200,18 @@ func FlagString(f uint16) string {
 		return "Z"
 	case FlagS:
 		return "S"
+	case FlagO:
+		return "O"
 	}
-	panic(nil)
+	panic("FlagString")
 }
 
 var regFlags = [...]uint16{
-	FlagC, FlagP, FlagA, FlagZ, FlagS,
+	FlagC, FlagP, FlagA, FlagZ, FlagS, FlagO,
+}
+
+type ArithmeticFlags struct {
+	A, C, O bool
 }
 
 type RegisterWidth uint32
@@ -232,7 +240,7 @@ func (rr *Registers) Flag(cond bool, flag uint16) {
 // value. Note that it is not possible to just take the target register and
 // pick the value from there, since some operations (cmp) do not write the
 // value back to the registers.
-func (rr *Registers) ProcessFlags(width RegisterWidth, value uint16) {
+func (rr *Registers) ProcessFlags(width RegisterWidth, value uint16, af ArithmeticFlags) {
 	switch width {
 	case WidthFull:
 	case WidthLo:
@@ -241,22 +249,65 @@ func (rr *Registers) ProcessFlags(width RegisterWidth, value uint16) {
 		value = value & 0xff
 	}
 	rr.Flag(value>>15 > 0, FlagS)
-	rr.Flag(bits.OnesCount16(value)%2 == 0, FlagP)
+	// Parity is only calculated on lower byte
+	rr.Flag(bits.OnesCount16(value&0xff)%2 == 0, FlagP)
 	rr.Flag(value == 0, FlagZ)
+	rr.Flag(af.A, FlagA)
+	rr.Flag(af.C, FlagC)
+	rr.Flag(af.O, FlagO)
+}
+
+func (rr *Registers) JumpIf(cond bool, dst OperandType) {
+	if dst, ok := dst.(OperandImm); ok {
+		if cond {
+			rr[RegIp] += uint16(dst)
+		}
+	} else {
+		panic(dst)
+	}
 }
 
 func (rr *Registers) String() string {
 	var sb strings.Builder
-	for i := RegAx; i <= RegDi; i++ {
-		fmt.Fprintf(&sb, "%s=%d\n", OperandReg{i, WidthFull}, rr[i])
+	for i := RegAx; i < RegFlags; i++ {
+		fmt.Fprintf(&sb, "%5s: 0x%04x (%d)\n", OperandReg{i, WidthFull}, rr[i], rr[i])
 	}
-	fmt.Fprintf(&sb, "Flags=")
+	fmt.Fprintf(&sb, "Flags: ")
 	for _, flag := range regFlags {
 		if rr.IsSet(flag) {
 			fmt.Fprintf(&sb, "%s", FlagString(flag))
 		}
 	}
 	fmt.Fprintln(&sb)
+	return sb.String()
+}
+
+// Summary only prints out the non-zero registers.
+func (rr *Registers) Summary() string {
+	var sb strings.Builder
+	sb.WriteString("Final registers:\n")
+	for i := RegAx; i < RegFlags; i++ {
+		if rr[i] != 0 {
+			fmt.Fprintf(&sb, "%8s: 0x%04x (%d)\n", OperandReg{i, WidthFull}, rr[i], rr[i])
+		}
+	}
+	fmt.Fprintf(&sb, "%8s: ", "Flags")
+	for _, flag := range regFlags {
+		if rr.IsSet(flag) {
+			fmt.Fprintf(&sb, "%s", FlagString(flag))
+		}
+	}
+	fmt.Fprintln(&sb)
+	return sb.String()
+}
+
+func FlagsString(flags uint16) string {
+	var sb strings.Builder
+	for _, flag := range regFlags {
+		if flags&flag != 0 {
+			fmt.Fprintf(&sb, "%s", FlagString(flag))
+		}
+	}
 	return sb.String()
 }
 
@@ -330,6 +381,7 @@ var regStrsFull = [...][3]string{
 	{"bp", "", ""},
 	{"si", "", ""},
 	{"di", "", ""},
+	{"ip", "", ""},
 }
 
 func (r OperandReg) String() string {
@@ -404,7 +456,24 @@ func OperandUnsigned(bb []byte) OperandImmU {
 }
 
 type Instruction struct {
-	ip       int
 	op       Op
 	operands []Operand
+}
+
+func (in Instruction) String() string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "%s ", in.op)
+	for j, o := range in.operands {
+		if j > 0 {
+			fmt.Fprint(&sb, ", ")
+		}
+		if OpJe <= in.op && in.op <= OpJcxz {
+			operand := o.op.(OperandImm)
+			// Offset is relative to start of instruction and therefore needs +2.
+			fmt.Fprintf(&sb, "$%+d", operand+2)
+		} else {
+			fmt.Fprintf(&sb, "%s", o)
+		}
+	}
+	return sb.String()
 }

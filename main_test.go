@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -32,8 +33,7 @@ func reassembleAndCompare(t *testing.T, inputFile, outputFile string) {
 	output, err := os.Create(outputFileAsm)
 	ck(err)
 	defer output.Close()
-	ins := Decode(buf)
-	PrintInstructions(output, ins)
+	Disassemble(output, buf)
 	ck(output.Close())
 	ck(nasm(outputFileAsm))
 	ref, err := ioutil.ReadFile(outputFile)
@@ -48,12 +48,13 @@ func TestSimulate(t *testing.T) {
 		file     string
 		expected Registers
 	}{
-		{"listing_0043_immediate_movs", Registers{1, 2, 3, 4, 5, 6, 7, 8}},
-		{"listing_0044_register_movs", Registers{4, 3, 2, 1, 1, 2, 3, 4}},
+		{"listing_0043_immediate_movs", Registers{1, 2, 3, 4, 5, 6, 7, 8, 24}},
+		{"listing_0044_register_movs", Registers{4, 3, 2, 1, 1, 2, 3, 4, 28}},
 		{"listing_0046_add_sub_cmp", Registers{
 			RegBx:    57602,
 			RegCx:    3841,
 			RegSp:    998,
+			RegIp:    24,
 			RegFlags: FlagP | FlagZ,
 		}},
 		{"listing_0047_challenge_flags", Registers{
@@ -61,15 +62,32 @@ func TestSimulate(t *testing.T) {
 			RegDx:    10,
 			RegSp:    99,
 			RegBp:    98,
-			RegFlags: FlagP | FlagS, /* | FlagC | FlagA */
+			RegIp:    44,
+			RegFlags: FlagC | FlagA | FlagP | FlagS,
+		}},
+		{"listing_0048_ip_register", Registers{
+			RegBx:    2000,
+			RegCx:    64736,
+			RegIp:    14,
+			RegFlags: FlagC | FlagS,
+		}},
+		{"listing_0049_conditional_jumps", Registers{
+			RegBx:    1030,
+			RegIp:    14,
+			RegFlags: FlagP | FlagZ,
+		}},
+		{"listing_0050_challenge_jumps", Registers{
+			RegAx:    13,
+			RegBx:    65531,
+			RegIp:    28,
+			RegFlags: FlagC | FlagA | FlagS,
 		}},
 	} {
 		buf, err := ioutil.ReadFile(path.Join("testdata", tc.file))
 		ck(err)
-		ins := Decode(buf)
-		regs := Simulate(ins)
+		regs := Simulate(io.Discard, buf)
 		if regs != tc.expected {
-			t.Errorf("Listing %s failed, got\n%s\nbut expected\n\n%s\n", tc.file, &regs, &tc.expected)
+			t.Errorf("Listing %s failed, got\n\n%s\nbut expected\n\n%s\n", tc.file, regs.Summary(), tc.expected.Summary())
 		}
 	}
 }
