@@ -6,12 +6,13 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/bits"
 	"os"
 	"os/exec"
 	"path"
 )
 
-const DefaultInputFile = "listing_0050_challenge_jumps"
+const DefaultInputFile = "listing_0053_add_loop_challenge"
 
 func main() {
 	if err := run(); err != nil {
@@ -28,16 +29,19 @@ func ck(err error) {
 func run() error {
 	log.SetFlags(0)
 	var inputFile string
-	var simulate bool
+	var simulate, assembleInput bool
 	flag.StringVar(&inputFile, "file", DefaultInputFile, "input file to parse")
 	flag.BoolVar(&simulate, "exec", false, "simulate execution")
+	flag.BoolVar(&assembleInput, "assemble", false, "assemble input .asm file with nasm")
 	flag.Parse()
 
 	log.Printf("Processing %q", inputFile)
 
 	inputFile = path.Join("testdata", inputFile)
-	if err := nasm(inputFile + ".asm"); err != nil {
-		return fmt.Errorf("could not assemble %s: %w", inputFile, err)
+	if assembleInput {
+		if err := nasm(inputFile + ".asm"); err != nil {
+			return fmt.Errorf("could not assemble %s: %w", inputFile, err)
+		}
 	}
 	buf, err := ioutil.ReadFile(inputFile)
 	if err != nil {
@@ -60,46 +64,38 @@ func nasm(file string) error {
 func DecodeInstruction(buf []byte, ip int) (in Instruction, advance int) {
 	b1, b2 := buf[ip], buf[ip+1]
 	o := operation(b1, b2)
-	switch {
-	case o.kind == KindRmToFromRm:
+	switch o.kind {
+	case KindRmToFromRm:
 		D, W := (b1>>1)&1, b1&1
 		MOD, REG, RM := b2>>6, (b2>>3)&0b111, b2&0b111
-		var dst, src OperandType
+		var dst, src Operand
 		dst, advance = RmOperand(buf, ip, MOD, RM, W)
-		src = register(REG, W)
+		src = Operand{SizeNone, register(REG, W)}
 		if D == 1 {
 			dst, src = src, dst
 		}
-		in = Instruction{o.op, FromUnsized(dst, src)}
-	case o.kind == KindImmToRm:
+		in = Instruction{o.op, []Operand{dst, src}}
+	case KindImmToRm:
 		// Immediate to register/memory
 		D, W := (b1>>1)&1, b1&1
 		MOD, RM := b2>>6, b2&0b111
 		var dst, src Operand
-		dstOp, offset := RmOperand(buf, ip, MOD, RM, W)
-		dst.op = dstOp
-		if MOD == 0b11 {
-			dst.size = SizeNone
+		var offset int
+		dst, offset = RmOperand(buf, ip, MOD, RM, W)
+		// It's kind of weird putting an explicit size on an immediate, but it is
+		// valid in the disassembly. It's just that it's also unnecessary since it
+		// can be inferred from the immediate and the other operand. Change
+		// src.size below to SizeNone and the tests still pass.
+		src.size = SizeFrom(W)
+		if o.op != OpMov && D == 1 {
+			src.op = OperandSigned(buf[ip+offset : ip+offset+1])
+			advance = offset + 1
 		} else {
-			dst.size = SizeFrom(W)
-		}
-		switch o.op {
-		case OpMov:
-			src.size = SizeFrom(W)
-			src.op = OperandSigned(buf[ip+offset : ip+offset+1+int(W)])
+			src.op = OperandUnsigned(buf[ip+offset : ip+offset+1+int(W)])
 			advance = offset + 1 + int(W)
-		default:
-			src.size = SizeNone
-			if D == 1 {
-				src.op = OperandSigned(buf[ip+offset : ip+offset+1])
-				advance = offset + 1
-			} else {
-				src.op = OperandUnsigned(buf[ip+offset : ip+offset+1+int(W)])
-				advance = offset + 1 + int(W)
-			}
 		}
 		in = Instruction{o.op, []Operand{dst, src}}
-	case o.kind == KindMemToFromAcc && o.op == OpMov:
+	case KindMemToFromAcc:
 		// Memory/accumulator to acumulator/memory
 		D, W := (b1>>1)&1, b1&1
 		disp := OperandDisplacement{DispEA, OperandSigned(buf[ip+1 : ip+3])}
@@ -113,14 +109,14 @@ func DecodeInstruction(buf []byte, ip int) (in Instruction, advance int) {
 		}
 		in = Instruction{o.op, FromUnsized(dst, src)}
 		advance = 3
-	case o.kind == KindImmToReg && o.op == OpMov:
+	case KindImmToReg:
 		// Immediate to register
 		W, REG := (b1>>3)&1, b1&0b111
 		dst := register(REG, W)
 		src := OperandSigned(buf[ip+1 : ip+2+int(W)])
 		in = Instruction{o.op, FromUnsized(dst, src)}
 		advance = 2 + int(W)
-	case o.kind == KindImmToAcc:
+	case KindImmToAcc:
 		// Immediate to accumulator
 		W := b1 & 1
 		width := [...]RegisterWidth{WidthLo, WidthFull}[W]
@@ -128,7 +124,7 @@ func DecodeInstruction(buf []byte, ip int) (in Instruction, advance int) {
 		src := OperandSigned(buf[ip+1 : ip+2+int(W)])
 		in = Instruction{o.op, FromUnsized(dst, src)}
 		advance = 2 + int(W)
-	case o.kind == KindCondJmp:
+	case KindCondJmp:
 		ipInc := OperandSigned(buf[ip+1 : ip+2])
 		in = Instruction{o.op, FromUnsized(ipInc)}
 		advance = 2
@@ -141,10 +137,10 @@ func DecodeInstruction(buf []byte, ip int) (in Instruction, advance int) {
 	return in, advance
 }
 
-func RmOperand(buf []byte, ip int, MOD, RM, W byte) (OperandType, int) {
+func RmOperand(buf []byte, ip int, MOD, RM, W byte) (Operand, int) {
 	if MOD == 0b11 {
 		// Register to register
-		return register(RM, W), 2
+		return Operand{SizeNone, register(RM, W)}, 2
 	}
 	var advance int
 	var disp OperandDisplacement
@@ -169,7 +165,7 @@ func RmOperand(buf []byte, ip int, MOD, RM, W byte) (OperandType, int) {
 		disp.imm = OperandSigned(buf[ip+2 : ip+4])
 		advance = 4
 	}
-	return disp, advance
+	return Operand{SizeFrom(W), disp}, advance
 }
 
 func Disassemble(w io.Writer, buf []byte) {
@@ -182,34 +178,49 @@ func Disassemble(w io.Writer, buf []byte) {
 	}
 }
 
+type Memory [1 << 20]byte
+
 func Simulate(w io.Writer, buf []byte) Registers {
 	var regs, regsPrev Registers
-	//var mem [1 << 20]byte
+	var mem Memory
 	for int(regs[RegIp]) < len(buf) {
 		in, advance := DecodeInstruction(buf, int(regs[RegIp]))
 		regsPrev = regs
 		regs[RegIp] += uint16(advance)
 		switch in.op {
 		case OpMov:
+			imm := uint16(immediate(&regs, &mem, in.operands[1]))
 			switch dst := in.operands[0].op.(type) {
 			case OperandReg:
-				imm := uint16(immediate(&regs, in.operands[1]))
 				regs[dst.name], _ = applyOp(OpMov, dst.width, regs[dst.name], imm)
+			case OperandDisplacement:
+				offset := dispOffset(&regs, dst)
+				switch in.operands[0].size {
+				case SizeByte:
+					mem[offset] = byte(imm)
+				case SizeWord:
+					mem[offset] = byte(imm)
+					mem[offset+1] = byte(imm >> 8)
+				default:
+					panic(in.operands[0])
+				}
+			default:
+				panic(dst)
 			}
 		case OpAdd:
 			switch dst := in.operands[0].op.(type) {
 			case OperandReg:
-				imm := immediate(&regs, in.operands[1])
-				var aflags ArithmeticFlags
-				regs[dst.name], aflags = applyOp(OpAdd, dst.width, regs[dst.name], imm)
-				regs.ProcessFlags(dst.width, regs[dst.name], aflags)
+				imm := immediate(&regs, &mem, in.operands[1])
+				var flags Flags
+				regs[dst.name], flags = applyOp(OpAdd, dst.width, regs[dst.name], imm)
+				regs[RegFlags] = flags
 			}
 		case OpSub, OpCmp:
 			switch dst := in.operands[0].op.(type) {
 			case OperandReg:
-				imm := immediate(&regs, in.operands[1])
-				out, aflags := applyOp(OpSub, dst.width, regs[dst.name], imm)
-				regs.ProcessFlags(dst.width, out, aflags)
+				imm := immediate(&regs, &mem, in.operands[1])
+				out, flags := applyOp(OpSub, dst.width, regs[dst.name], imm)
+				regs[RegFlags] = flags
 				// Cmp is implemented like sub but does not write it's result.
 				if in.op != OpCmp {
 					regs[dst.name] = out
@@ -288,43 +299,62 @@ func Simulate(w io.Writer, buf []byte) Registers {
 
 // TODO: Rethink this, and consider how afAdd and afSub can both be shortened
 // and treated similarly.
-func applyOp(op Op, width RegisterWidth, a, b uint16) (uint16, ArithmeticFlags) {
+func applyOp(op Op, width RegisterWidth, a, b uint16) (uint16, Flags) {
 	var f func(uint16, uint16) uint16
-	var af ArithmeticFlags
+	var flags Flags
 	switch op {
 	case OpAdd:
-		f, af = opAdd, afAdd(width, a, b)
+		f, flags = opAdd, afAdd(width, a, b)
 	case OpSub:
-		f, af = opSub, afSub(width, a, b)
+		f, flags = opSub, afSub(width, a, b)
 	case OpMov:
 		f = opMov
 	default:
 		panic(op)
 	}
+	// Calculate the full value to put back in the register as well as some
+	// remaining flags on the actually calculated value. Since registers can be
+	// operated on at half width, the full value will contain a byte that is not
+	// relevant for the flags calculation.
+	var value uint16
 	switch width {
 	case WidthFull:
-		return f(a, b), af
+		value = f(a, b)
+		flags |= boolToInt(value>>15 > 0) * FlagS
+		// Parity is only calculated on lower byte
+		flags |= boolToInt(bits.OnesCount16(value&0xff)%2 == 0) * FlagP
+		flags |= boolToInt(value == 0) * FlagZ
 	case WidthLo:
-		return f(a&0xff, b) | a&0xff00, af
+		value = f(a&0xff, b) | a&0xff00
+		valueCalc := value & 0xff
+		flags |= boolToInt(valueCalc>>7 > 0) * FlagS
+		flags |= boolToInt(bits.OnesCount16(valueCalc)%2 == 0) * FlagP
+		flags |= boolToInt(valueCalc == 0) * FlagZ
 	case WidthHi:
-		return f((a>>8)&0xff, b)<<8 | a&0xff, af
+		value = f(a>>8, b)<<8 | a&0xff
+		valueCalc := value >> 8
+		flags |= boolToInt(valueCalc>>7 > 0) * FlagS
+		flags |= boolToInt(bits.OnesCount16(valueCalc)%2 == 0) * FlagP
+		flags |= boolToInt(valueCalc == 0) * FlagZ
+	default:
+		panic(width)
 	}
-	panic(width)
+	return value, flags
 }
 
 func opMov(a, b uint16) uint16 { return b }
 func opAdd(a, b uint16) uint16 { return a + b }
 func opSub(a, b uint16) uint16 { return a - b }
 
-func afAdd(w RegisterWidth, a, b uint16) ArithmeticFlags {
+func afAdd(w RegisterWidth, a, b uint16) Flags {
 	var overflow uint32
-	var flags ArithmeticFlags
+	var flags Flags
 	switch w {
 	case WidthFull:
 		overflow = 1<<16 - 1
 		ia, ib := int16(a), int16(b)
 		if ia < 0 && ib < 0 && 0 < ia+ib || 0 < ia && 0 < ib && ia+ib < 0 {
-			flags.O = true
+			flags |= FlagO
 		}
 	case WidthLo, WidthHi:
 		overflow = 1<<8 - 1
@@ -336,27 +366,27 @@ func afAdd(w RegisterWidth, a, b uint16) ArithmeticFlags {
 		}
 		ia, ib := int8(a), int8(b)
 		if ia < 0 && ib < 0 && 0 < ia+ib || 0 < ia && 0 < ib && ia+ib < 0 {
-			flags.O = true
+			flags |= FlagO
 		}
 	}
 	if uint32(a)+uint32(b) > overflow {
-		flags.C = true
+		flags |= FlagC
 	}
 	if uint8(a&0xf)+uint8(b&0xf) > (1<<4 - 1) {
-		flags.A = true
+		flags |= FlagA
 	}
 	return flags
 }
 
-func afSub(w RegisterWidth, a, b uint16) ArithmeticFlags {
+func afSub(w RegisterWidth, a, b uint16) Flags {
 	var overflow uint32
-	var flags ArithmeticFlags
+	var flags Flags
 	switch w {
 	case WidthFull:
 		overflow = 1<<16 - 1
 		ia, ib := int16(a), int16(b)
 		if ia < 0 && 0 < ib && 0 < ia-ib || 0 < ia && ib < 0 && ia-ib < 0 {
-			flags.O = true
+			flags |= FlagO
 		}
 	case WidthLo, WidthHi:
 		overflow = 1<<8 - 1
@@ -368,27 +398,68 @@ func afSub(w RegisterWidth, a, b uint16) ArithmeticFlags {
 		}
 		ia, ib := int16(int8(a)), int16(b)
 		if ia < 0 && 0 < ib && 0 < int8(ia-ib) || 0 < ia && ib < 0 && int8(ia-ib) < 0 {
-			flags.O = true
+			flags |= FlagO
 		}
 	}
 	if uint32(a)-uint32(b) > overflow {
-		flags.C = true
+		flags |= FlagC
 	}
 	if uint8(a&0xf)-uint8(b&0xf) > (1<<4 - 1) {
-		flags.A = true
+		flags |= FlagA
 	}
 	return flags
 }
 
-func immediate(regs *Registers, reg Operand) uint16 {
-	switch x := reg.op.(type) {
+func immediate(regs *Registers, mem *Memory, src Operand) uint16 {
+	switch x := src.op.(type) {
 	case OperandImm:
 		return uint16(x)
 	case OperandImmU:
 		return uint16(x)
 	case OperandReg:
-		return uint16(regs[x.name])
-	default:
-		panic(x)
+		switch x.width {
+		case WidthFull:
+			return uint16(regs[x.name])
+		case WidthLo:
+			return uint16(regs[x.name] & 0xff)
+		case WidthHi:
+			return uint16((regs[x.name] >> 8) & 0xff)
+		}
+	case OperandDisplacement:
+		offset := dispOffset(regs, x)
+		switch src.size {
+		case SizeByte:
+			return uint16(mem[offset])
+		case SizeWord:
+			return uint16(mem[offset+1])<<8 | uint16(mem[offset])
+		default:
+			panic(src.size)
+		}
 	}
+	panic(src)
+}
+
+func dispOffset(regs *Registers, d OperandDisplacement) int {
+	var offset int
+	switch d.kind {
+	case DispBxSi:
+		offset = int(regs[RegBx]) + int(regs[RegSi]) + int(d.imm)
+	case DispBxDi:
+		offset = int(regs[RegBx]) + int(regs[RegDi]) + int(d.imm)
+	case DispBpSi:
+		offset = int(regs[RegBp]) + int(regs[RegSi]) + int(d.imm)
+	case DispBpDi:
+		offset = int(regs[RegBp]) + int(regs[RegDi]) + int(d.imm)
+	case DispSi:
+		offset = int(regs[RegSi]) + int(d.imm)
+	case DispDi:
+		offset = int(regs[RegDi]) + int(d.imm)
+	case DispBp:
+		offset = int(regs[RegBp]) + int(d.imm)
+	case DispBx:
+		offset = int(regs[RegBx]) + int(d.imm)
+	case DispEA:
+		offset = int(uint16(d.imm))
+	}
+	return offset
 }

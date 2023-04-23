@@ -20,6 +20,16 @@ func TestDisassemble(t *testing.T) {
 		"listing_0039_more_movs",
 		"listing_0040_challenge_movs",
 		"listing_0041_add_sub_cmp_jnz",
+		"listing_0043_immediate_movs",
+		"listing_0044_register_movs",
+		"listing_0046_add_sub_cmp",
+		"listing_0047_challenge_flags",
+		"listing_0048_ip_register",
+		"listing_0049_conditional_jumps",
+		"listing_0050_challenge_jumps",
+		"listing_0051_memory_mov",
+		"listing_0052_memory_add_loop",
+		"listing_0053_add_loop_challenge",
 	} {
 		inputFile = path.Join("testdata", inputFile)
 		reassembleAndCompare(t, inputFile, outputFile)
@@ -81,6 +91,29 @@ func TestSimulate(t *testing.T) {
 			RegBx:    65531,
 			RegIp:    28,
 			RegFlags: FlagC | FlagA | FlagS,
+		}},
+		{"listing_0051_memory_mov", Registers{
+			RegBx: 1,
+			RegCx: 2,
+			RegDx: 10,
+			RegBp: 4,
+			RegIp: 48,
+		}},
+		{"listing_0052_memory_add_loop", Registers{
+			RegBx:    6,
+			RegCx:    4,
+			RegDx:    6,
+			RegBp:    1000,
+			RegSi:    6,
+			RegIp:    35,
+			RegFlags: FlagP | FlagZ,
+		}},
+		{"listing_0053_add_loop_challenge", Registers{
+			RegBx:    6,
+			RegDx:    6,
+			RegBp:    998,
+			RegIp:    33,
+			RegFlags: FlagP | FlagZ,
 		}},
 	} {
 		buf, err := ioutil.ReadFile(path.Join("testdata", tc.file))

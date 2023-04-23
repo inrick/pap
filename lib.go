@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math/bits"
 	"strings"
 )
 
@@ -111,53 +110,51 @@ func operation(b1, b2 byte) OpDescr {
 		case 0b111:
 			return OpDescr{KindImmToRm, OpCmp}
 		}
-	default:
-		if b1>>4 == 0b1011 {
-			return OpDescr{KindImmToReg, OpMov}
-		} else {
-			switch b1 {
-			case 0b01110100:
-				return OpDescr{KindCondJmp, OpJe}
-			case 0b01111100:
-				return OpDescr{KindCondJmp, OpJl}
-			case 0b01111110:
-				return OpDescr{KindCondJmp, OpJle}
-			case 0b01110010:
-				return OpDescr{KindCondJmp, OpJb}
-			case 0b01110110:
-				return OpDescr{KindCondJmp, OpJbe}
-			case 0b01111010:
-				return OpDescr{KindCondJmp, OpJp}
-			case 0b01110000:
-				return OpDescr{KindCondJmp, OpJo}
-			case 0b01111000:
-				return OpDescr{KindCondJmp, OpJs}
-			case 0b01110101:
-				return OpDescr{KindCondJmp, OpJne}
-			case 0b01111101:
-				return OpDescr{KindCondJmp, OpJnl}
-			case 0b01111111:
-				return OpDescr{KindCondJmp, OpJnle}
-			case 0b01110011:
-				return OpDescr{KindCondJmp, OpJnb}
-			case 0b01110111:
-				return OpDescr{KindCondJmp, OpJnbe}
-			case 0b01111011:
-				return OpDescr{KindCondJmp, OpJnp}
-			case 0b01110001:
-				return OpDescr{KindCondJmp, OpJno}
-			case 0b01111001:
-				return OpDescr{KindCondJmp, OpJns}
-			case 0b11100010:
-				return OpDescr{KindCondJmp, OpLoop}
-			case 0b11100001:
-				return OpDescr{KindCondJmp, OpLoopz}
-			case 0b11100000:
-				return OpDescr{KindCondJmp, OpLoopnz}
-			case 0b11100011:
-				return OpDescr{KindCondJmp, OpJcxz}
-			}
-		}
+	}
+	if b1>>4 == 0b1011 {
+		return OpDescr{KindImmToReg, OpMov}
+	}
+	switch b1 {
+	case 0b01110100:
+		return OpDescr{KindCondJmp, OpJe}
+	case 0b01111100:
+		return OpDescr{KindCondJmp, OpJl}
+	case 0b01111110:
+		return OpDescr{KindCondJmp, OpJle}
+	case 0b01110010:
+		return OpDescr{KindCondJmp, OpJb}
+	case 0b01110110:
+		return OpDescr{KindCondJmp, OpJbe}
+	case 0b01111010:
+		return OpDescr{KindCondJmp, OpJp}
+	case 0b01110000:
+		return OpDescr{KindCondJmp, OpJo}
+	case 0b01111000:
+		return OpDescr{KindCondJmp, OpJs}
+	case 0b01110101:
+		return OpDescr{KindCondJmp, OpJne}
+	case 0b01111101:
+		return OpDescr{KindCondJmp, OpJnl}
+	case 0b01111111:
+		return OpDescr{KindCondJmp, OpJnle}
+	case 0b01110011:
+		return OpDescr{KindCondJmp, OpJnb}
+	case 0b01110111:
+		return OpDescr{KindCondJmp, OpJnbe}
+	case 0b01111011:
+		return OpDescr{KindCondJmp, OpJnp}
+	case 0b01110001:
+		return OpDescr{KindCondJmp, OpJno}
+	case 0b01111001:
+		return OpDescr{KindCondJmp, OpJns}
+	case 0b11100010:
+		return OpDescr{KindCondJmp, OpLoop}
+	case 0b11100001:
+		return OpDescr{KindCondJmp, OpLoopz}
+	case 0b11100000:
+		return OpDescr{KindCondJmp, OpLoopnz}
+	case 0b11100011:
+		return OpDescr{KindCondJmp, OpJcxz}
 	}
 	panic(fmt.Sprintf("unimplemented instruction: %08b %08b", b1, b2))
 }
@@ -178,17 +175,20 @@ const (
 	RegCount
 )
 
+// Type alias for flags for documentation's sake.
+type Flags = uint16
+
 // Flags are described on page 22 of the manual.
 const (
-	FlagC uint16 = 1      // Carry
-	FlagP uint16 = 1 << 2 // Parity
-	FlagA uint16 = 1 << 4 // Auxiliary Carry
-	FlagZ uint16 = 1 << 6 // Zero
-	FlagS uint16 = 1 << 7 // Sign
-	FlagO uint16 = 1 << 8 // Overflow
+	FlagC Flags = 1      // Carry
+	FlagP Flags = 1 << 2 // Parity
+	FlagA Flags = 1 << 4 // Auxiliary Carry
+	FlagZ Flags = 1 << 6 // Zero
+	FlagS Flags = 1 << 7 // Sign
+	FlagO Flags = 1 << 8 // Overflow
 )
 
-func FlagString(f uint16) string {
+func FlagString(f Flags) string {
 	switch f {
 	case FlagC:
 		return "C"
@@ -206,12 +206,8 @@ func FlagString(f uint16) string {
 	panic("FlagString")
 }
 
-var regFlags = [...]uint16{
+var regFlags = [...]Flags{
 	FlagC, FlagP, FlagA, FlagZ, FlagS, FlagO,
-}
-
-type ArithmeticFlags struct {
-	A, C, O bool
 }
 
 type RegisterWidth uint32
@@ -224,45 +220,17 @@ const (
 
 type Registers [RegCount]uint16
 
-func (rr *Registers) IsSet(flag uint16) bool {
+func (rr *Registers) IsSet(flag Flags) bool {
 	return rr[RegFlags]&flag > 0
 }
 
-func (rr *Registers) Flag(cond bool, flag uint16) {
-	if cond {
-		rr[RegFlags] |= flag
-	} else {
-		rr[RegFlags] &= ^flag
-	}
-}
-
-// ProcessFlags toggles all the implemented flags based on the given width and
-// value. Note that it is not possible to just take the target register and
-// pick the value from there, since some operations (cmp) do not write the
-// value back to the registers.
-func (rr *Registers) ProcessFlags(width RegisterWidth, value uint16, af ArithmeticFlags) {
-	switch width {
-	case WidthFull:
-	case WidthLo:
-		value = (value & 0xff) << 8
-	case WidthHi:
-		value = value & 0xff
-	}
-	rr.Flag(value>>15 > 0, FlagS)
-	// Parity is only calculated on lower byte
-	rr.Flag(bits.OnesCount16(value&0xff)%2 == 0, FlagP)
-	rr.Flag(value == 0, FlagZ)
-	rr.Flag(af.A, FlagA)
-	rr.Flag(af.C, FlagC)
-	rr.Flag(af.O, FlagO)
-}
-
 func (rr *Registers) JumpIf(cond bool, dst OperandType) {
-	if dst, ok := dst.(OperandImm); ok {
+	switch dst := dst.(type) {
+	case OperandImm:
 		if cond {
 			rr[RegIp] += uint16(dst)
 		}
-	} else {
+	default:
 		panic(dst)
 	}
 }
@@ -301,7 +269,7 @@ func (rr *Registers) Summary() string {
 	return sb.String()
 }
 
-func FlagsString(flags uint16) string {
+func FlagsString(flags Flags) string {
 	var sb strings.Builder
 	for _, flag := range regFlags {
 		if flags&flag != 0 {
@@ -476,4 +444,12 @@ func (in Instruction) String() string {
 		}
 	}
 	return sb.String()
+}
+
+func boolToInt(b bool) uint16 {
+	var t uint16
+	if b {
+		t = 1
+	}
+	return t
 }

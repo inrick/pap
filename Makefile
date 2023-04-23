@@ -2,10 +2,10 @@
 all:
 	go build
 run:
-	go run . -exec
+	go run . -exec -assemble
 test:
 	go test -v ./...
 debug:
-	gdlv debug -exec
+	gdlv debug -exec -assemble
 clean:
 	go clean
