@@ -30,6 +30,8 @@ func TestDisassemble(t *testing.T) {
 		"listing_0051_memory_mov",
 		"listing_0052_memory_add_loop",
 		"listing_0053_add_loop_challenge",
+		"listing_0054_draw_rectangle",
+		"listing_0055_challenge_rectangle",
 	} {
 		inputFile = path.Join("testdata", inputFile)
 		reassembleAndCompare(t, inputFile, outputFile)
@@ -115,10 +117,22 @@ func TestSimulate(t *testing.T) {
 			RegIp:    33,
 			RegFlags: FlagP | FlagZ,
 		}},
+		{"listing_0054_draw_rectangle", Registers{
+			RegCx:    64,
+			RegDx:    64,
+			RegBp:    16640,
+			RegIp:    38,
+			RegFlags: FlagP | FlagZ,
+		}},
+		{"listing_0055_challenge_rectangle", Registers{
+			RegBx: 16388,
+			RegBp: 764,
+			RegIp: 68,
+		}},
 	} {
 		buf, err := ioutil.ReadFile(path.Join("testdata", tc.file))
 		ck(err)
-		regs := Simulate(io.Discard, buf)
+		regs, _ := Simulate(io.Discard, buf)
 		if regs != tc.expected {
 			t.Errorf("Listing %s failed, got\n\n%s\nbut expected\n\n%s\n", tc.file, regs.Summary(), tc.expected.Summary())
 		}

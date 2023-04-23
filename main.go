@@ -12,7 +12,7 @@ import (
 	"path"
 )
 
-const DefaultInputFile = "listing_0053_add_loop_challenge"
+const DefaultInputFile = "listing_0055_challenge_rectangle"
 
 func main() {
 	if err := run(); err != nil {
@@ -29,10 +29,11 @@ func ck(err error) {
 func run() error {
 	log.SetFlags(0)
 	var inputFile string
-	var simulate, assembleInput bool
+	var simulate, assembleInput, dumpMem bool
 	flag.StringVar(&inputFile, "file", DefaultInputFile, "input file to parse")
 	flag.BoolVar(&simulate, "exec", false, "simulate execution")
 	flag.BoolVar(&assembleInput, "assemble", false, "assemble input .asm file with nasm")
+	flag.BoolVar(&dumpMem, "dump", false, "dump memory of simulation to mem.data")
 	flag.Parse()
 
 	log.Printf("Processing %q", inputFile)
@@ -50,8 +51,17 @@ func run() error {
 
 	if !simulate {
 		Disassemble(os.Stdout, buf)
-	} else {
-		_ = Simulate(os.Stdout, buf)
+		return nil
+	}
+
+	_, mem := Simulate(os.Stdout, buf)
+	if dumpMem {
+		f, err := os.Create("mem.data")
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		f.Write(mem[:])
 	}
 
 	return nil
@@ -180,7 +190,7 @@ func Disassemble(w io.Writer, buf []byte) {
 
 type Memory [1 << 20]byte
 
-func Simulate(w io.Writer, buf []byte) Registers {
+func Simulate(w io.Writer, buf []byte) (Registers, *Memory) {
 	var regs, regsPrev Registers
 	var mem Memory
 	for int(regs[RegIp]) < len(buf) {
@@ -294,7 +304,7 @@ func Simulate(w io.Writer, buf []byte) Registers {
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, regs.Summary())
-	return regs
+	return regs, &mem
 }
 
 // TODO: Rethink this, and consider how afAdd and afSub can both be shortened
