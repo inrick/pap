@@ -2,7 +2,7 @@
 all:
 	go build
 run:
-	go run . -exec -assemble
+	@go run . -exec -assemble
 test:
 	go test -v ./...
 debug:

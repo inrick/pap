@@ -89,8 +89,9 @@ func DecodeInstruction(buf []byte, ip int) (in Instruction, advance int) {
 		// It's kind of weird putting an explicit size on an immediate, but it is
 		// valid in the disassembly. It's just that it's also unnecessary since it
 		// can be inferred from the immediate and the other operand. Change
-		// src.size below to SizeNone and the tests still pass.
-		src.size = SizeFrom(W)
+		// src.size below between SizeNone and SizeFrom(W), either way the tests
+		// still pass.
+		src.size = SizeNone
 		if o.op != OpMov && D == 1 {
 			src.op = OperandSigned(buf[ip+offset : ip+offset+1])
 			advance = offset + 1
@@ -135,7 +136,7 @@ func DecodeInstruction(buf []byte, ip int) (in Instruction, advance int) {
 		}
 		var dst, src Operand
 		dst, advance = RmOperand(buf, ip, MOD, RM, 1)
-		src = Operand{SizeFrom(1), Segment(SR)}
+		src = Operand{SizeNone, Segment(SR)}
 		if o.kind == KindRmToSeg {
 			dst, src = src, dst
 		}
@@ -292,7 +293,7 @@ func Simulate(w io.Writer, buf []byte) (Registers, *Memory) {
 			regs.JumpIf(regs[RegCx] == 0, in.operands[0].op)
 		}
 		// Print processed instruction
-		fmt.Fprintf(w, "%-20s ;", in)
+		fmt.Fprintf(w, "%s ;", in)
 		// Write out state changes
 		for r := RegAx; r < RegFlags; r++ {
 			t0, t1 := regsPrev[r], regs[r]

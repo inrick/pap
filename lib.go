@@ -252,7 +252,7 @@ func (rr *Registers) String() string {
 	for i := RegAx; i < RegFlags; i++ {
 		fmt.Fprintf(&sb, "%5s: 0x%04x (%d)\n", OperandReg{i, WidthFull}, rr[i], rr[i])
 	}
-	fmt.Fprintf(&sb, "Flags: ")
+	fmt.Fprintf(&sb, "flags: ")
 	for _, flag := range regFlags {
 		if rr.IsSet(flag) {
 			fmt.Fprintf(&sb, "%s", FlagString(flag))
@@ -271,13 +271,15 @@ func (rr *Registers) Summary() string {
 			fmt.Fprintf(&sb, "%8s: 0x%04x (%d)\n", OperandReg{i, WidthFull}, rr[i], rr[i])
 		}
 	}
-	fmt.Fprintf(&sb, "%8s: ", "Flags")
-	for _, flag := range regFlags {
-		if rr.IsSet(flag) {
-			fmt.Fprintf(&sb, "%s", FlagString(flag))
+	if rr[RegFlags] != 0 {
+		fmt.Fprintf(&sb, "%8s: ", "flags")
+		for _, flag := range regFlags {
+			if rr.IsSet(flag) {
+				fmt.Fprintf(&sb, "%s", FlagString(flag))
+			}
 		}
+		fmt.Fprintln(&sb)
 	}
-	fmt.Fprintln(&sb)
 	return sb.String()
 }
 
