@@ -20,12 +20,6 @@ func main() {
 	}
 }
 
-func ck(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
 func run() error {
 	log.SetFlags(0)
 	var inputFile string
@@ -154,7 +148,7 @@ func RmOperand(buf []byte, ip int, MOD, RM, W byte) (Operand, int) {
 	}
 	var advance int
 	var disp OperandDisplacement
-	disp.kind = GetDisplacementKind(RM)
+	disp.kind = DisplacementKind(RM)
 	switch MOD {
 	case 0b00:
 		if RM == 0b110 {
@@ -187,8 +181,6 @@ func Disassemble(w io.Writer, buf []byte) {
 		fmt.Fprintln(w, in)
 	}
 }
-
-type Memory [1 << 20]byte
 
 func Simulate(w io.Writer, buf []byte) (Registers, *Memory) {
 	var regs, regsPrev Registers
@@ -450,26 +442,25 @@ func immediate(regs *Registers, mem *Memory, src Operand) uint16 {
 }
 
 func dispOffset(regs *Registers, d OperandDisplacement) int {
-	var offset int
 	switch d.kind {
 	case DispBxSi:
-		offset = int(regs[RegBx]) + int(regs[RegSi]) + int(d.imm)
+		return int(regs[RegBx]) + int(regs[RegSi]) + int(d.imm)
 	case DispBxDi:
-		offset = int(regs[RegBx]) + int(regs[RegDi]) + int(d.imm)
+		return int(regs[RegBx]) + int(regs[RegDi]) + int(d.imm)
 	case DispBpSi:
-		offset = int(regs[RegBp]) + int(regs[RegSi]) + int(d.imm)
+		return int(regs[RegBp]) + int(regs[RegSi]) + int(d.imm)
 	case DispBpDi:
-		offset = int(regs[RegBp]) + int(regs[RegDi]) + int(d.imm)
+		return int(regs[RegBp]) + int(regs[RegDi]) + int(d.imm)
 	case DispSi:
-		offset = int(regs[RegSi]) + int(d.imm)
+		return int(regs[RegSi]) + int(d.imm)
 	case DispDi:
-		offset = int(regs[RegDi]) + int(d.imm)
+		return int(regs[RegDi]) + int(d.imm)
 	case DispBp:
-		offset = int(regs[RegBp]) + int(d.imm)
+		return int(regs[RegBp]) + int(d.imm)
 	case DispBx:
-		offset = int(regs[RegBx]) + int(d.imm)
+		return int(regs[RegBx]) + int(d.imm)
 	case DispEA:
-		offset = int(uint16(d.imm))
+		return int(uint16(d.imm))
 	}
-	return offset
+	panic(d)
 }

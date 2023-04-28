@@ -9,6 +9,19 @@ import (
 	"testing"
 )
 
+func Must[T any](t T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return t
+}
+
+func Must0(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestDisassemble(t *testing.T) {
 	outputFile := path.Join("testdata", "tmp_output_file")
 	outputFileAsm := outputFile + ".asm"
@@ -40,16 +53,13 @@ func TestDisassemble(t *testing.T) {
 
 func reassembleAndCompare(t *testing.T, inputFile, outputFile string) {
 	outputFileAsm := outputFile + ".asm"
-	buf, err := ioutil.ReadFile(inputFile)
-	ck(err)
-	output, err := os.Create(outputFileAsm)
-	ck(err)
+	buf := Must(ioutil.ReadFile(inputFile))
+	output := Must(os.Create(outputFileAsm))
 	defer output.Close()
 	Disassemble(output, buf)
-	ck(output.Close())
-	ck(nasm(outputFileAsm))
-	ref, err := ioutil.ReadFile(outputFile)
-	ck(err)
+	Must0(output.Close())
+	Must0(nasm(outputFileAsm))
+	ref := Must(ioutil.ReadFile(outputFile))
 	if !bytes.Equal(buf, ref) {
 		t.Errorf("Listing %s did not reassemble to expected output", inputFile)
 	}
@@ -130,8 +140,7 @@ func TestSimulate(t *testing.T) {
 			RegIp: 68,
 		}},
 	} {
-		buf, err := ioutil.ReadFile(path.Join("testdata", tc.file))
-		ck(err)
+		buf := Must(ioutil.ReadFile(path.Join("testdata", tc.file)))
 		regs, _ := Simulate(io.Discard, buf)
 		if regs != tc.expected {
 			t.Errorf("Listing %s failed, got\n\n%s\nbut expected\n\n%s\n", tc.file, regs.Summary(), tc.expected.Summary())

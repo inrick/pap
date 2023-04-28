@@ -159,19 +159,21 @@ func operation(b1, b2 byte) OpDescr {
 	panic(fmt.Sprintf("unimplemented instruction: %08b %08b", b1, b2))
 }
 
+type Memory [1 << 20]byte
+
 type Register uint32
 
 const (
-	RegAx Register = iota
-	RegBx
-	RegCx
-	RegDx
-	RegSp
-	RegBp
-	RegSi
-	RegDi
-	RegIp
-	RegFlags
+	RegAx    Register = iota // Accumulator
+	RegBx                    // Base
+	RegCx                    // Count
+	RegDx                    // Data
+	RegSp                    // Stack pointer
+	RegBp                    // Base pointer
+	RegSi                    // Source index
+	RegDi                    // Destiniation index
+	RegIp                    // Instruction pointer
+	RegFlags                 // Flags
 	RegCount
 )
 
@@ -285,7 +287,7 @@ type Operand struct {
 }
 
 type (
-	OperandType interface{ OperandType() }
+	OperandType interface{ operandType() }
 	OperandReg  struct {
 		name  Register
 		width RegisterWidth
@@ -298,10 +300,10 @@ type (
 	}
 )
 
-func (_ OperandReg) OperandType()          {}
-func (_ OperandImm) OperandType()          {}
-func (_ OperandImmU) OperandType()         {}
-func (_ OperandDisplacement) OperandType() {}
+func (_ OperandReg) operandType()          {}
+func (_ OperandImm) operandType()          {}
+func (_ OperandImmU) operandType()         {}
+func (_ OperandDisplacement) operandType() {}
 
 type SizeMark uint32
 
@@ -386,10 +388,6 @@ var dispKindStrs = [...]string{
 	"bx+si", "bx+di", "bp+si", "bp+di", "si", "di", "bp", "bx",
 }
 
-func GetDisplacementKind(rm byte) DisplacementKind {
-	return DisplacementKind(rm)
-}
-
 func (d OperandDisplacement) String() string {
 	if d.kind == DispEA {
 		return fmt.Sprintf("[%d]", uint16(d.imm))
@@ -416,7 +414,7 @@ func OperandUnsigned(bb []byte) OperandImmU {
 	case 1:
 		u = uint16(bb[0])
 	case 2:
-		u = uint16(uint16(bb[0]) | uint16(bb[1])<<8)
+		u = uint16(bb[0]) | uint16(bb[1])<<8
 	default:
 		panic(len(bb))
 	}
