@@ -312,117 +312,76 @@ func Simulate(w io.Writer, buf []byte) (Registers, *Memory) {
 	return regs, &mem
 }
 
-// TODO: Rethink this, and consider how afAdd and afSub can both be shortened
-// and treated similarly.
+// Applies the given operation (OpMov, OpAdd, OpSub) and returns the new
+// register value as well as any flags. Note that the returned register value
+// is a full register value: when operating on half registers the returned
+// value will be the fully updated register value, with only the high or low
+// bits modified.
 func applyOp(op Op, width RegisterWidth, a, b uint16) (uint16, Flags) {
-	var f func(uint16, uint16) uint16
-	var flags Flags
-	switch op {
-	case OpAdd:
-		f, flags = opAdd, afAdd(width, a, b)
-	case OpSub:
-		f, flags = opSub, afSub(width, a, b)
-	case OpMov:
-		f = opMov
-	default:
-		panic(op)
-	}
-	// Calculate the full value to put back in the register as well as some
-	// remaining flags on the actually calculated value. Since registers can be
-	// operated on at half width, the full value will contain a byte that is not
-	// relevant for the flags calculation.
-	var value uint16
+	value, flags := applyOpValue(op, width, a, b)
+	// If operating at half width, pack the value appropriately.
 	switch width {
-	case WidthFull:
-		value = f(a, b)
-		flags |= boolToInt(value>>15 > 0) * FlagS
-		// Parity is only calculated on lower byte
-		flags |= boolToInt(bits.OnesCount16(value&0xff)%2 == 0) * FlagP
-		flags |= boolToInt(value == 0) * FlagZ
 	case WidthLo:
-		value = f(a&0xff, b) | a&0xff00
-		valueCalc := value & 0xff
-		flags |= boolToInt(valueCalc>>7 > 0) * FlagS
-		flags |= boolToInt(bits.OnesCount16(valueCalc)%2 == 0) * FlagP
-		flags |= boolToInt(valueCalc == 0) * FlagZ
+		value = value&0xff | a&0xff00
 	case WidthHi:
-		value = f(a>>8, b)<<8 | a&0xff
-		valueCalc := value >> 8
-		flags |= boolToInt(valueCalc>>7 > 0) * FlagS
-		flags |= boolToInt(bits.OnesCount16(valueCalc)%2 == 0) * FlagP
-		flags |= boolToInt(valueCalc == 0) * FlagZ
-	default:
-		panic(width)
+		value = value<<8 | a&0xff
 	}
 	return value, flags
 }
 
-func opMov(a, b uint16) uint16 { return b }
-func opAdd(a, b uint16) uint16 { return a + b }
-func opSub(a, b uint16) uint16 { return a - b }
-
-func afAdd(w RegisterWidth, a, b uint16) Flags {
-	var overflow uint32
-	var flags Flags
+// Returns the value as well as any flags created by the operation (OpMov,
+// OpAdd, OpSub). The value of half register operations will be returned as a
+// plain value, not packed together in the full register. For example,
+// "mov ah, 3" will return 3 no matter what is in "al".
+func applyOpValue(op Op, w RegisterWidth, a, b uint16) (val uint16, flags Flags) {
+	if op == OpMov {
+		return b, 0
+	}
+	var carry uint32
+	var signBit uint16
 	switch w {
 	case WidthFull:
-		overflow = 1<<16 - 1
-		ia, ib := int16(a), int16(b)
-		if ia < 0 && ib < 0 && 0 < ia+ib || 0 < ia && 0 < ib && ia+ib < 0 {
-			flags |= FlagO
-		}
+		carry, signBit = 1<<16-1, 1<<15
+		flags |= overflowFlag(op, int16(a), int16(b))
 	case WidthLo, WidthHi:
-		overflow = 1<<8 - 1
-		switch w {
-		case WidthLo:
-			a, b = a&0xff, b&0xff
-		case WidthHi:
-			a, b = (a>>8)&0xff, b&0xff
+		carry, signBit = 1<<8-1, 1<<7
+		if w == WidthHi {
+			a >>= 8
 		}
-		ia, ib := int8(a), int8(b)
-		if ia < 0 && ib < 0 && 0 < ia+ib || 0 < ia && 0 < ib && ia+ib < 0 {
-			flags |= FlagO
-		}
+		a &= 0xff
+		flags |= overflowFlag(op, int8(a), int8(b))
 	}
-	if uint32(a)+uint32(b) > overflow {
-		flags |= FlagC
+	// Calculate value of operation and any remaining flags.
+	var valA uint8
+	var valC uint32
+	switch op {
+	case OpAdd:
+		val = a + b
+		valA = uint8(a&0xf) + uint8(b&0xf)
+		valC = uint32(a) + uint32(b)
+	case OpSub:
+		val = a - b
+		valA = uint8(a&0xf) - uint8(b&0xf)
+		valC = uint32(a) - uint32(b)
 	}
-	if uint8(a&0xf)+uint8(b&0xf) > (1<<4 - 1) {
-		flags |= FlagA
-	}
-	return flags
+	flags |= boolToInt(valA > 1<<4-1) * FlagA
+	flags |= boolToInt(valC > carry) * FlagC
+	flags |= boolToInt(val&signBit > 0) * FlagS
+	flags |= boolToInt(val == 0) * FlagZ
+	// Parity is only calculated on lower byte
+	flags |= boolToInt(bits.OnesCount16(val&0xff)%2 == 0) * FlagP
+	return val, flags
 }
 
-func afSub(w RegisterWidth, a, b uint16) Flags {
-	var overflow uint32
-	var flags Flags
-	switch w {
-	case WidthFull:
-		overflow = 1<<16 - 1
-		ia, ib := int16(a), int16(b)
-		if ia < 0 && 0 < ib && 0 < ia-ib || 0 < ia && ib < 0 && ia-ib < 0 {
-			flags |= FlagO
-		}
-	case WidthLo, WidthHi:
-		overflow = 1<<8 - 1
-		switch w {
-		case WidthLo:
-			a = a & 0xff
-		case WidthHi:
-			a = (a >> 8) & 0xff
-		}
-		ia, ib := int16(int8(a)), int16(b)
-		if ia < 0 && 0 < ib && 0 < int8(ia-ib) || 0 < ia && ib < 0 && int8(ia-ib) < 0 {
-			flags |= FlagO
-		}
+func overflowFlag[T int16 | int8](op Op, a, b T) Flags {
+	ia, ib := T(a), T(b)
+	if op == OpSub {
+		ib = -ib
 	}
-	if uint32(a)-uint32(b) > overflow {
-		flags |= FlagC
+	if ia < 0 && ib < 0 && 0 < ia+ib || 0 < ia && 0 < ib && ia+ib < 0 {
+		return FlagO
 	}
-	if uint8(a&0xf)-uint8(b&0xf) > (1<<4 - 1) {
-		flags |= FlagA
-	}
-	return flags
+	return 0
 }
 
 func immediate(regs *Registers, mem *Memory, src Operand) uint16 {
