@@ -73,6 +73,8 @@ const (
 	KindImmToRm
 	KindImmToReg
 	KindImmToAcc
+	KindRmToSeg
+	KindSegToRm
 	KindCondJmp
 )
 
@@ -115,6 +117,10 @@ func operation(b1, b2 byte) OpDescr {
 		return OpDescr{KindImmToReg, OpMov}
 	}
 	switch b1 {
+	case 0b10001110:
+		return OpDescr{KindRmToSeg, OpMov}
+	case 0b10001100:
+		return OpDescr{KindSegToRm, OpMov}
 	case 0b01110100:
 		return OpDescr{KindCondJmp, OpJe}
 	case 0b01111100:
@@ -172,6 +178,10 @@ const (
 	RegBp                    // Base pointer
 	RegSi                    // Source index
 	RegDi                    // Destiniation index
+	RegEs                    // Extra segment
+	RegCs                    // Code segment
+	RegSs                    // Stack segment
+	RegDs                    // Data segment
 	RegIp                    // Instruction pointer
 	RegFlags                 // Flags
 	RegCount
@@ -351,6 +361,10 @@ var regStrsFull = [...][3]string{
 	{"bp", "", ""},
 	{"si", "", ""},
 	{"di", "", ""},
+	{"es", "", ""},
+	{"cs", "", ""},
+	{"ss", "", ""},
+	{"ds", "", ""},
 	{"ip", "", ""},
 }
 
@@ -368,6 +382,12 @@ var regVal = [...]OperandReg{
 
 func register(reg, w byte) OperandReg {
 	return regVal[w<<3|reg]
+}
+
+// Segment register code is listed in Table 4-11 in the manual.
+func Segment(SR byte) OperandReg {
+	reg := []Register{RegEs, RegCs, RegSs, RegDs}[SR]
+	return OperandReg{reg, WidthFull}
 }
 
 type DisplacementKind uint32

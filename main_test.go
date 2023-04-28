@@ -35,6 +35,7 @@ func TestDisassemble(t *testing.T) {
 		"listing_0041_add_sub_cmp_jnz",
 		"listing_0043_immediate_movs",
 		"listing_0044_register_movs",
+		"listing_0045_challenge_register_movs",
 		"listing_0046_add_sub_cmp",
 		"listing_0047_challenge_flags",
 		"listing_0048_ip_register",
@@ -70,8 +71,26 @@ func TestSimulate(t *testing.T) {
 		file     string
 		expected Registers
 	}{
-		{"listing_0043_immediate_movs", Registers{1, 2, 3, 4, 5, 6, 7, 8, 24}},
-		{"listing_0044_register_movs", Registers{4, 3, 2, 1, 1, 2, 3, 4, 28}},
+		{"listing_0043_immediate_movs", Registers{
+			1, 2, 3, 4, 5, 6, 7, 8, RegIp: 24,
+		}},
+		{"listing_0044_register_movs", Registers{
+			4, 3, 2, 1, 1, 2, 3, 4, RegIp: 28,
+		}},
+		{"listing_0045_challenge_register_movs", Registers{
+			RegAx: 0x4411,
+			RegBx: 0x3344,
+			RegCx: 0x6677,
+			RegDx: 0x7788,
+			RegSp: 0x4411,
+			RegBp: 0x3344,
+			RegSi: 0x6677,
+			RegDi: 0x7788,
+			RegEs: 0x6677,
+			RegSs: 0x4411,
+			RegDs: 0x3344,
+			RegIp: 44,
+		}},
 		{"listing_0046_add_sub_cmp", Registers{
 			RegBx:    57602,
 			RegCx:    3841,

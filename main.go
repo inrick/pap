@@ -128,6 +128,18 @@ func DecodeInstruction(buf []byte, ip int) (in Instruction, advance int) {
 		src := OperandSigned(buf[ip+1 : ip+2+int(W)])
 		in = Instruction{o.op, FromUnsized(dst, src)}
 		advance = 2 + int(W)
+	case KindRmToSeg, KindSegToRm:
+		MOD, SR, RM := b2>>6, (b2>>3)&0b11, b2&0b111
+		if (b2>>5)&1 != 0 {
+			panic("illegal instruction")
+		}
+		var dst, src Operand
+		dst, advance = RmOperand(buf, ip, MOD, RM, 1)
+		src = Operand{SizeFrom(1), Segment(SR)}
+		if o.kind == KindRmToSeg {
+			dst, src = src, dst
+		}
+		in = Instruction{o.op, []Operand{dst, src}}
 	case KindCondJmp:
 		ipInc := OperandSigned(buf[ip+1 : ip+2])
 		in = Instruction{o.op, FromUnsized(ipInc)}
