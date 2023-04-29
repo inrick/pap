@@ -226,9 +226,7 @@ func Simulate(w io.Writer, buf []byte) (Registers, *Memory) {
 			switch dst := in.operands[0].op.(type) {
 			case OperandReg:
 				imm := immediate(&regs, &mem, in.operands[1])
-				var flags Flags
-				regs[dst.name], flags = applyOp(OpAdd, dst.width, regs[dst.name], imm)
-				regs[RegFlags] = flags
+				regs[dst.name], regs[RegFlags] = applyOp(OpAdd, dst.width, regs[dst.name], imm)
 			}
 		case OpSub, OpCmp:
 			switch dst := in.operands[0].op.(type) {
@@ -317,8 +315,13 @@ func Simulate(w io.Writer, buf []byte) (Registers, *Memory) {
 // is a full register value: when operating on half registers the returned
 // value will be the fully updated register value, with only the high or low
 // bits modified.
-func applyOp(op Op, width RegisterWidth, a, b uint16) (uint16, Flags) {
-	value, flags := applyOpValue(op, width, a, b)
+func applyOp(op Op, width RegisterWidth, a, b uint16) (value uint16, flags Flags) {
+	switch op {
+	case OpMov:
+		value = b
+	case OpAdd, OpSub:
+		value, flags = applyArithmetic(op, width, a, b)
+	}
 	// If operating at half width, pack the value appropriately.
 	switch width {
 	case WidthLo:
@@ -329,14 +332,11 @@ func applyOp(op Op, width RegisterWidth, a, b uint16) (uint16, Flags) {
 	return value, flags
 }
 
-// Returns the value as well as any flags created by the operation (OpMov,
-// OpAdd, OpSub). The value of half register operations will be returned as a
-// plain value, not packed together in the full register. For example,
-// "mov ah, 3" will return 3 no matter what is in "al".
-func applyOpValue(op Op, w RegisterWidth, a, b uint16) (val uint16, flags Flags) {
-	if op == OpMov {
-		return b, 0
-	}
+// Returns the value as well as any flags created by the operation (OpAdd,
+// OpSub). The value of half register operations will be returned as a plain
+// value, not packed together in the full register. For example, "add ah, 3"
+// will return ah+3 no matter what is in al.
+func applyArithmetic(op Op, w RegisterWidth, a, b uint16) (value uint16, flags Flags) {
 	var carry uint32
 	var signBit uint16
 	switch w {
@@ -356,21 +356,21 @@ func applyOpValue(op Op, w RegisterWidth, a, b uint16) (val uint16, flags Flags)
 	var valC uint32
 	switch op {
 	case OpAdd:
-		val = a + b
+		value = a + b
 		valA = uint8(a&0xf) + uint8(b&0xf)
 		valC = uint32(a) + uint32(b)
 	case OpSub:
-		val = a - b
+		value = a - b
 		valA = uint8(a&0xf) - uint8(b&0xf)
 		valC = uint32(a) - uint32(b)
 	}
 	flags |= boolToInt(valA > 1<<4-1) * FlagA
 	flags |= boolToInt(valC > carry) * FlagC
-	flags |= boolToInt(val&signBit > 0) * FlagS
-	flags |= boolToInt(val == 0) * FlagZ
+	flags |= boolToInt(value&signBit != 0) * FlagS
+	flags |= boolToInt(value == 0) * FlagZ
 	// Parity is only calculated on lower byte
-	flags |= boolToInt(bits.OnesCount16(val&0xff)%2 == 0) * FlagP
-	return val, flags
+	flags |= boolToInt(bits.OnesCount16(value&0xff)%2 == 0) * FlagP
+	return value, flags
 }
 
 func overflowFlag[T int16 | int8](op Op, a, b T) Flags {

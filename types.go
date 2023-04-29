@@ -386,10 +386,11 @@ func register(reg, w byte) OperandReg {
 	return regVal[w<<3|reg]
 }
 
+var segmentRegs = [...]Register{RegEs, RegCs, RegSs, RegDs}
+
 // Segment register code is listed in Table 4-11 in the manual.
 func Segment(SR byte) OperandReg {
-	reg := []Register{RegEs, RegCs, RegSs, RegDs}[SR]
-	return OperandReg{reg, WidthFull}
+	return OperandReg{segmentRegs[SR], WidthFull}
 }
 
 type DisplacementKind uint32
