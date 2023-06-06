@@ -177,7 +177,7 @@ const (
 	RegSp                    // Stack pointer
 	RegBp                    // Base pointer
 	RegSi                    // Source index
-	RegDi                    // Destiniation index
+	RegDi                    // Destination index
 	RegEs                    // Extra segment
 	RegCs                    // Code segment
 	RegSs                    // Stack segment
