@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -280,19 +279,27 @@ func Haversine(p Pair) float64 {
 
 // Read reference file format which is a length (int64) followed by that number
 // of float64, describing the haversine distance of each pair of points.
-func ReadReference(rIn io.Reader) ([]float64, error) {
-	r := bufio.NewReader(rIn)
-	var buf [8]byte
-	if n, _ := r.Read(buf[:]); n != 8 {
+func ReadReference(r io.Reader) ([]float64, error) {
+	buf, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	// We need at least 8 bytes to read the length
+	if len(buf) < 8 {
 		return nil, ErrTooFew
 	}
-	N := *(*int64)(unsafe.Pointer(&buf))
+	bufData := unsafe.SliceData(buf)
+	N := *(*int64)(unsafe.Pointer(bufData))
+	// Make sure we have read the expected amount of data, otherwise reaching
+	// into the underlying array below will be dangerous. The 8 in the beginning
+	// is added because of the 8 bytes read above containing the length.
+	if 8+8*N != int64(len(buf)) {
+		return nil, ErrTooFew
+	}
 	dists := make([]float64, N)
 	for i := range dists {
-		if n, _ := r.Read(buf[:]); n != 8 {
-			return dists, ErrTooFew
-		}
-		dists[i] = *(*float64)(unsafe.Pointer(&buf))
+		// Again, remember to offset an extra 8 bytes.
+		dists[i] = *(*float64)(unsafe.Pointer(uintptr(unsafe.Pointer(bufData)) + 8 + 8*uintptr(i)))
 	}
 	return dists, nil
 }
