@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -279,7 +280,8 @@ func Haversine(p Pair) float64 {
 
 // Read reference file format which is a length (int64) followed by that number
 // of float64, describing the haversine distance of each pair of points.
-func ReadReference(r io.Reader) ([]float64, error) {
+func ReadReference(rIn io.Reader) ([]float64, error) {
+	r := bufio.NewReader(rIn)
 	var buf [8]byte
 	if n, _ := r.Read(buf[:]); n != 8 {
 		return nil, ErrTooFew
