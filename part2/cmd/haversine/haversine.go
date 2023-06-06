@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -144,14 +145,14 @@ func (p *PairsParser) ParsePair() Pair {
 		field := p.Ident()
 		p.Expect(':')
 		n := p.Number()
-		switch field {
-		case "x0":
+		switch {
+		case bytes.Equal(field, []byte("x0")):
 			point.X0 = n
-		case "y0":
+		case bytes.Equal(field, []byte("y0")):
 			point.Y0 = n
-		case "x1":
+		case bytes.Equal(field, []byte("x1")):
 			point.X1 = n
-		case "y1":
+		case bytes.Equal(field, []byte("y1")):
 			point.Y1 = n
 		default:
 		}
@@ -172,13 +173,13 @@ func (p *PairsParser) SkipSpace() {
 	p.pos = i
 }
 
-func (p *PairsParser) Ident() string {
+func (p *PairsParser) Ident() []byte {
 	p.Expect('"')
 	start := p.pos
 	p.SkipUntil('"')
 	end := p.pos
 	p.Expect('"')
-	return string(p.buf[start:end])
+	return p.buf[start:end]
 }
 
 func (p *PairsParser) Number() float64 {
