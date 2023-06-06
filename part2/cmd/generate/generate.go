@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -54,7 +55,7 @@ func main() {
 			log.Fatal(err)
 		}
 		defer f.Close()
-		enc := json.NewEncoder(f)
+		enc := json.NewEncoder(bufio.NewWriter(f))
 		if pretty {
 			// Pretty printing takes a lot more time.
 			enc.SetIndent("", "  ")
@@ -70,7 +71,6 @@ func main() {
 			log.Fatal(err)
 		}
 		defer fReference.Close()
-		// TODO: is this really right? Output looks weird, see hex.
 		if err := WriteReference(fReference, dists); err != nil {
 			log.Fatal(err)
 		}
@@ -204,7 +204,9 @@ func Haversine(p Pair) float64 {
 //
 // Format: 64 byte integer `n` specifying the length of the array; followed by
 // `n` number of float64:s.
-func WriteReference(w io.Writer, dists []float64) error {
+func WriteReference(w0 io.Writer, dists []float64) (err error) {
+	w := bufio.NewWriter(w0)
+	defer w.Flush()
 	N := uint64(len(dists))
 	buf := *(*[8]byte)(unsafe.Pointer(&N))
 	if n, _ := w.Write(buf[:]); n != 8 {
