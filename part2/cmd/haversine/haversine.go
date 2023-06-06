@@ -288,8 +288,7 @@ func ReadReference(r io.Reader) ([]float64, error) {
 	if len(buf) < 8 {
 		return nil, ErrTooFew
 	}
-	bufData := unsafe.SliceData(buf)
-	N := *(*int64)(unsafe.Pointer(bufData))
+	N := *(*int64)(unsafe.Pointer(&buf[0]))
 	// Make sure we have read the expected amount of data, otherwise reaching
 	// into the underlying array below will be dangerous. The 8 in the beginning
 	// is added because of the 8 bytes read above containing the length.
@@ -299,7 +298,7 @@ func ReadReference(r io.Reader) ([]float64, error) {
 	dists := make([]float64, N)
 	for i := range dists {
 		// Again, remember to offset an extra 8 bytes.
-		dists[i] = *(*float64)(unsafe.Pointer(uintptr(unsafe.Pointer(bufData)) + 8 + 8*uintptr(i)))
+		dists[i] = *(*float64)(unsafe.Pointer(&buf[8+8*i]))
 	}
 	return dists, nil
 }
