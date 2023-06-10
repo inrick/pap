@@ -55,7 +55,9 @@ func main() {
 			log.Fatal(err)
 		}
 		defer f.Close()
-		enc := json.NewEncoder(bufio.NewWriter(f))
+		w := bufio.NewWriter(f)
+		defer w.Flush()
+		enc := json.NewEncoder(w)
 		if pretty {
 			// Pretty printing takes a lot more time.
 			enc.SetIndent("", "  ")
@@ -124,6 +126,9 @@ func NewConfig(args []string) Config {
 	entries, err := strconv.ParseInt(args[2], 10, 64)
 	if err != nil {
 		usage()
+	}
+	if 1<<30 < entries {
+		log.Fatalf("%d entries seems excessive, is it really intentional?", entries)
 	}
 	return Config{mode, seed, int(entries)}
 }

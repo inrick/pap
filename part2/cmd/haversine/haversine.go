@@ -54,8 +54,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	p := PairsParser{buf: buf}
-	pp, err := p.Parse()
+	pp, err := ParsePairs(buf)
 	if err != nil {
 		log.Fatalf("%s failed to parse: %v", inputFile, err)
 	}
@@ -72,16 +71,14 @@ func main() {
 		if N0, N1 := len(pp), len(distsRef); N0 != N1 {
 			log.Fatalf("different length to comparison file: %d != %d", N0, N1)
 		}
-		var avg float64
-		for i := range pp {
-			d0, d1 := Haversine(pp[i]), distsRef[i]
+		dists, avg := Distances(pp)
+		for i, d0 := range dists {
+			d1 := distsRef[i]
 			// TODO: choose appropriate epsilon
 			if 1e-9 < math.Abs(d0-d1) {
 				log.Fatalf("difference detected: %f != %f", d0, d1)
 			}
-			avg += d0
 		}
-		avg = avg / float64(len(pp))
 		log.Print("result identical to reference file")
 		log.Printf("Average=%f", avg)
 	}
@@ -101,6 +98,18 @@ func main() {
 	}
 }
 
+func Distances(pp []Pair) ([]float64, float64) {
+	dists := make([]float64, len(pp))
+	N := float64(len(pp))
+	var avg float64
+	for i, p := range pp {
+		d := Haversine(p)
+		dists[i] = d
+		avg += d / N
+	}
+	return dists, avg
+}
+
 // NOTE: shortcuts have been taken in the parser below. For instance when
 // parsing identifiers and numbers, we are not following the grammar but the
 // approach works in the common case. Potentially worth tightening up.
@@ -115,19 +124,26 @@ type Pair struct {
 	X0, Y0, X1, Y1 float64
 }
 
+func ParsePairs(buf []byte) ([]Pair, error) {
+	p := PairsParser{buf: buf}
+	return p.Parse()
+}
+
 func (p *PairsParser) Parse() ([]Pair, error) {
 	p.Expect('{')
 	p.ExpectBytes([]byte(`"pairs"`))
 	p.Expect(':')
 	p.Expect('[')
+	p.SkipSpace()
 	var pp []Pair
-	for {
-		point := p.ParsePair()
-		pp = append(pp, point)
+	for p.Peek() != ']' {
+		pair := p.ParsePair()
+		pp = append(pp, pair)
 		if p.Peek() != ',' || p.err != nil {
 			break
 		}
 		p.Expect(',')
+		p.SkipSpace()
 	}
 	p.Expect(']')
 	p.Expect('}')
@@ -136,9 +152,9 @@ func (p *PairsParser) Parse() ([]Pair, error) {
 }
 
 func (p *PairsParser) ParsePair() Pair {
-	var point Pair
+	var pair Pair
 	if p.err != nil {
-		return point
+		return pair
 	}
 	p.Expect('{')
 	for {
@@ -147,14 +163,15 @@ func (p *PairsParser) ParsePair() Pair {
 		n := p.Number()
 		switch {
 		case bytes.Equal(field, []byte("x0")):
-			point.X0 = n
+			pair.X0 = n
 		case bytes.Equal(field, []byte("y0")):
-			point.Y0 = n
+			pair.Y0 = n
 		case bytes.Equal(field, []byte("x1")):
-			point.X1 = n
+			pair.X1 = n
 		case bytes.Equal(field, []byte("y1")):
-			point.Y1 = n
+			pair.Y1 = n
 		default:
+			p.err = fmt.Errorf("unknown field %s", string(field))
 		}
 		if p.Peek() != ',' || p.err != nil {
 			break
@@ -162,13 +179,12 @@ func (p *PairsParser) ParsePair() Pair {
 		p.Expect(',')
 	}
 	p.Expect('}')
-	return point
+	return pair
 }
 
 func (p *PairsParser) SkipSpace() {
 	i := p.pos
-	for i < len(p.buf) && IsSpace(p.buf[i]) {
-		i++
+	for ; i < len(p.buf) && IsSpace(p.buf[i]); i++ {
 	}
 	p.pos = i
 }
