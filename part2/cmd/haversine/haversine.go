@@ -12,7 +12,6 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
-	"strconv"
 	"time"
 	"unsafe"
 )
@@ -205,7 +204,7 @@ func (p *PairsParser) Number() float64 {
 	}
 	end := p.pos
 	tok := p.buf[start:end]
-	n, err := strconv.ParseFloat(string(tok), 64)
+	n, err := ParseFloat(tok)
 	if err != nil {
 		p.err = err
 	}
@@ -277,8 +276,58 @@ func IsNumChar(c byte) bool {
 	return ('0' <= c && c <= '9') || c == '.' || c == '-'
 }
 
+func IsDigit(c byte) bool {
+	return '0' <= c && c <= '9'
+}
+
 func Radians(deg float64) float64 {
 	return (math.Pi / 180) * deg
+}
+
+var (
+	ErrParseFloatEmpty   = fmt.Errorf("ParseFloat: given empty string")
+	ErrParseFloatDecimal = fmt.Errorf("ParseFloat: more than one decimal point")
+	ErrParseFloatUnknown = fmt.Errorf("ParseFloat: unknown character")
+)
+
+func ParseFloat(s []byte) (float64, error) {
+	if len(s) == 0 {
+		return 0, ErrParseFloatEmpty
+	}
+	neg := s[0] == '-'
+	decimal := false
+	var err error
+	n, i := float64(0), 0
+	if neg {
+		i = 1
+	}
+	for ; i < len(s) && err == nil && !decimal; i++ {
+		switch {
+		case s[i] == '.':
+			decimal = true
+		case IsDigit(s[i]):
+			n = n*10 + float64(s[i]-'0')
+		default:
+			err = fmt.Errorf("%w %c", ErrParseFloatUnknown, s[i])
+		}
+	}
+	// Parse everything after '.'
+	q := float64(0)
+	pow := float64(10)
+	for ; i < len(s) && err == nil; i++ {
+		switch {
+		case s[i] == '.':
+			err = ErrParseFloatDecimal
+		case IsDigit(s[i]):
+			q += float64(s[i]-'0') / pow
+			pow *= 10
+		}
+	}
+	n += q
+	if neg {
+		n = -n
+	}
+	return n, err
 }
 
 func Square(x float64) float64 { return x * x }
