@@ -29,16 +29,22 @@ func usage() {
 
 func main() {
 	log.SetFlags(0)
-	var discard, pretty bool
-	var outputDir string
+	log.SetPrefix("[generate] ")
+	var (
+		discard   bool
+		pretty    bool
+		outputDir string
+	)
 	flag.BoolVar(&discard, "discard", false, "discard generated output, do not create a file")
 	flag.BoolVar(&pretty, "pretty", false, "pretty print output JSON file")
 	flag.StringVar(&outputDir, "dir", ".", "output directory")
 	flag.Parse()
 	cfg := NewConfig(flag.Args())
 	t0 := time.Now()
-	var pp []Pair
-	var dists []float64
+	var (
+		pp    []Pair
+		dists []float64
+	)
 	switch cfg.mode {
 	case OutputUniform:
 		pp, dists = Uniform(cfg)

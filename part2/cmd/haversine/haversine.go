@@ -12,7 +12,6 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
-	"time"
 	"unsafe"
 )
 
@@ -23,11 +22,29 @@ var (
 )
 
 func main() {
+	var (
+		timeStart      uint64
+		timeReadInput  uint64
+		timeParse      uint64
+		timeComparison uint64
+		timeEnd        uint64
+	)
+	timeStart = Rdtsc()
 	log.SetFlags(0)
-	var cpuProf, memProf string
+	log.SetPrefix("[haversine] ")
+	var (
+		cpuProf   string
+		memProf   string
+		printFreq bool
+	)
 	flag.StringVar(&cpuProf, "cpuprof", "", "cpu profile output file")
 	flag.StringVar(&memProf, "memprof", "", "mem profile output file")
+	flag.BoolVar(&printFreq, "freq", false, "print estimated CPU frequency")
 	flag.Parse()
+	if printFreq {
+		PrintCpuFrequency()
+		return
+	}
 	args := flag.Args()
 	if nargs := len(args); nargs < 1 || 2 < nargs {
 		log.Fatalf("usage: %s <file.json> [file.f64]", os.Args[0])
@@ -43,7 +60,6 @@ func main() {
 		}
 		defer pprof.StopCPUProfile()
 	}
-	t0 := time.Now()
 	inputFile := args[0]
 	var comparisonFile string
 	if len(args) == 2 {
@@ -53,10 +69,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	timeReadInput = Rdtsc()
 	pp, err := ParsePairs(buf)
 	if err != nil {
 		log.Fatalf("%s failed to parse: %v", inputFile, err)
 	}
+	timeParse = Rdtsc()
 	if comparisonFile != "" {
 		f, err := os.Open(comparisonFile)
 		if err != nil {
@@ -71,19 +89,58 @@ func main() {
 			log.Fatalf("different length to comparison file: %d != %d", N0, N1)
 		}
 		dists, avg := Distances(pp)
+		allEqual := true
 		for i, d0 := range dists {
 			d1 := distsRef[i]
 			// TODO: choose appropriate epsilon
-			if 1e-9 < math.Abs(d0-d1) {
-				log.Fatalf("difference detected: %f != %f", d0, d1)
+			const eps = 1e-9
+			if eps < math.Abs(d0-d1) {
+				log.Printf("    > difference detected in pair %d: %f != %f", i, d0, d1)
+				allEqual = false
 			}
 		}
-		log.Print("result identical to reference file")
-		log.Printf("Average=%f", avg)
+		if allEqual {
+			log.Print("result identical to reference file")
+		}
+		log.Printf("average=%f", avg)
+		timeComparison = Rdtsc()
 	}
-	t1 := time.Now()
-	dt := t1.Sub(t0).Seconds()
-	log.Printf("%s processed successfully in %.3f seconds", inputFile, dt)
+	timeEnd = Rdtsc()
+	dt := timeEnd - timeStart
+	fr := EstimateCpuFrequency(10)
+	tscToSec := func(c uint64) float64 {
+		return float64(c) / float64(fr.EstFreq)
+	}
+	pct := func(n uint64) float64 {
+		return 100 * float64(n) / float64(dt)
+	}
+	log.Printf("Time report:")
+	log.Printf(
+		"1. Reading input file: %d cycles / %.2f seconds (%.2f %%)",
+		timeReadInput-timeStart,
+		tscToSec(timeReadInput-timeStart),
+		pct(timeReadInput-timeStart),
+	)
+	log.Printf(
+		"2. Parsing input file: %d cycles / %.2f seconds (%.2f %%)",
+		timeParse-timeReadInput,
+		tscToSec(timeParse-timeReadInput),
+		pct(timeParse-timeReadInput),
+	)
+	log.Printf(
+		"3. Comparing with comparison file: %d cycles / %.2f seconds (%.2f %%)",
+		timeComparison-timeParse,
+		tscToSec(timeComparison-timeParse),
+		pct(timeComparison-timeParse),
+	)
+	log.Printf(
+		"4. %s processed successfully in a total of %d cycles / %.2f seconds",
+		inputFile, dt, tscToSec(dt),
+	)
+	log.Printf(
+		"(Estimated CPU frequency = %.2f MHz; Cpuid frequency reported = %d MHz)",
+		float64(fr.EstFreq)/1e6, CpuidFreqMhz(),
+	)
 	if memProf != "" {
 		f, err := os.Create(memProf)
 		if err != nil {
