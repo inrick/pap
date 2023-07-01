@@ -26,7 +26,7 @@ func EstimateCpuFrequency(millisToWait uint64) CpuFreqReport {
 	t0 := time.Now()
 	t1 := t0
 	tsc0 := Rdtsc()
-	toWait := uint64(1e9) * millisToWait / 1000
+	toWait := 1e6 * millisToWait
 	var dt uint64
 	for dt < toWait {
 		t1 = time.Now()

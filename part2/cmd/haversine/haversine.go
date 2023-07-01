@@ -22,14 +22,16 @@ var (
 )
 
 func main() {
-	var (
-		timeStart      uint64
-		timeReadInput  uint64
-		timeParse      uint64
-		timeComparison uint64
-		timeEnd        uint64
-	)
-	timeStart = Rdtsc()
+	var prof Profiler
+	if err := run(&prof); err != nil {
+		log.Fatal(err)
+	}
+	prof.PrintReport()
+}
+
+func run(prof *Profiler) error {
+	totId := prof.Start("Total runtime")
+	defer prof.Stop(totId)
 	log.SetFlags(0)
 	log.SetPrefix("[haversine] ")
 	var (
@@ -43,7 +45,7 @@ func main() {
 	flag.Parse()
 	if printFreq {
 		PrintCpuFrequency()
-		return
+		return nil
 	}
 	args := flag.Args()
 	if nargs := len(args); nargs < 1 || 2 < nargs {
@@ -52,11 +54,11 @@ func main() {
 	if cpuProf != "" {
 		f, err := os.Create(cpuProf)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		defer f.Close()
 		if err := pprof.StartCPUProfile(f); err != nil {
-			log.Fatal(err)
+			return err
 		}
 		defer pprof.StopCPUProfile()
 	}
@@ -65,93 +67,84 @@ func main() {
 	if len(args) == 2 {
 		comparisonFile = args[1]
 	}
+	inputId := prof.Start("Read input file")
 	buf, err := ioutil.ReadFile(inputFile)
+	prof.Stop(inputId)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	timeReadInput = Rdtsc()
+	parseId := prof.Start("Parse input file")
 	pp, err := ParsePairs(buf)
+	prof.Stop(parseId)
 	if err != nil {
-		log.Fatalf("%s failed to parse: %v", inputFile, err)
+		return fmt.Errorf("%s failed to parse: %v", inputFile, err)
 	}
-	timeParse = Rdtsc()
+	calcId := prof.Start("Calculate distances")
+	dists, avg := Distances(pp)
+	prof.Stop(calcId)
 	if comparisonFile != "" {
-		f, err := os.Open(comparisonFile)
+		diffs, err := CompareReferenceFile(dists, avg, comparisonFile, prof)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
-		defer f.Close()
-		distsRef, err := ReadReference(f)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if N0, N1 := len(pp), len(distsRef); N0 != N1 {
-			log.Fatalf("different length to comparison file: %d != %d", N0, N1)
-		}
-		dists, avg := Distances(pp)
-		allEqual := true
-		for i, d0 := range dists {
-			d1 := distsRef[i]
-			// TODO: choose appropriate epsilon
-			const eps = 1e-9
-			if eps < math.Abs(d0-d1) {
-				log.Printf("    > difference detected in pair %d: %f != %f", i, d0, d1)
-				allEqual = false
+		if len(diffs) == 0 {
+			log.Print("result identical to reference file")
+		} else {
+			for _, d := range diffs {
+				log.Printf("difference detected in pair %d: %f != %f", d.idx, d.dist, d.distRef)
 			}
 		}
-		if allEqual {
-			log.Print("result identical to reference file")
-		}
-		log.Printf("average=%f", avg)
-		timeComparison = Rdtsc()
 	}
-	timeEnd = Rdtsc()
-	dt := timeEnd - timeStart
-	fr := EstimateCpuFrequency(10)
-	tscToSec := func(c uint64) float64 {
-		return float64(c) / float64(fr.EstFreq)
-	}
-	pct := func(n uint64) float64 {
-		return 100 * float64(n) / float64(dt)
-	}
-	log.Printf("Time report:")
-	log.Printf(
-		"1. Reading input file: %d cycles / %.2f seconds (%.2f %%)",
-		timeReadInput-timeStart,
-		tscToSec(timeReadInput-timeStart),
-		pct(timeReadInput-timeStart),
-	)
-	log.Printf(
-		"2. Parsing input file: %d cycles / %.2f seconds (%.2f %%)",
-		timeParse-timeReadInput,
-		tscToSec(timeParse-timeReadInput),
-		pct(timeParse-timeReadInput),
-	)
-	log.Printf(
-		"3. Comparing with comparison file: %d cycles / %.2f seconds (%.2f %%)",
-		timeComparison-timeParse,
-		tscToSec(timeComparison-timeParse),
-		pct(timeComparison-timeParse),
-	)
-	log.Printf(
-		"4. %s processed successfully in a total of %d cycles / %.2f seconds",
-		inputFile, dt, tscToSec(dt),
-	)
-	log.Printf(
-		"(Estimated CPU frequency = %.2f MHz; Cpuid frequency reported = %d MHz)",
-		float64(fr.EstFreq)/1e6, CpuidFreqMhz(),
-	)
+	log.Printf("average=%f", avg)
 	if memProf != "" {
 		f, err := os.Create(memProf)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		defer f.Close()
 		runtime.GC()
 		if err := pprof.WriteHeapProfile(f); err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
+	return nil
+}
+
+func CompareReferenceFile(
+	dists []float64, avg float64, comparisonFile string, prof *Profiler,
+) ([]Diff, error) {
+	readId := prof.Start("Read reference file")
+	f, err := os.Open(comparisonFile)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	distsRef, err := ReadReference(f)
+	prof.Stop(readId)
+	if err != nil {
+		return nil, err
+	}
+	if N0, N1 := len(dists), len(distsRef); N0 != N1 {
+		return nil, fmt.Errorf("different length to comparison file: %d != %d", N0, N1)
+	}
+	cmpId := prof.Start("Compare reference file")
+	defer prof.Stop(cmpId)
+	var diffs []Diff
+	for i, d0 := range dists {
+		d1 := distsRef[i]
+		// TODO: choose appropriate epsilon
+		const eps = 1e-9
+		if eps < math.Abs(d0-d1) {
+			diffs = append(diffs, Diff{i, d0, d1})
+		}
+	}
+	return diffs, nil
+}
+
+type Diff struct {
+	idx     int
+	dist    float64
+	distRef float64
 }
 
 func Distances(pp []Pair) ([]float64, float64) {
@@ -424,4 +417,48 @@ func ReadReference(r io.Reader) ([]float64, error) {
 		dists[i] = *(*float64)(unsafe.Pointer(&buf[8+8*i]))
 	}
 	return dists, nil
+}
+
+// Not goroutine safe
+type Profiler struct {
+	results []ProfResult
+}
+
+type ProfResult struct {
+	name string
+	tsc0 uint64
+	tsc1 uint64
+}
+
+func (p *Profiler) Start(fnName string) int {
+	res := ProfResult{name: fnName, tsc0: Rdtsc()}
+	p.results = append(p.results, res)
+	id := len(p.results) - 1
+	return id
+}
+
+func (p *Profiler) Stop(id int) {
+	p.results[id].tsc1 = Rdtsc()
+}
+
+func (p *Profiler) PrintReport() {
+	fr := EstimateCpuFrequency(10)
+	total := p.results[0]
+	dt := total.tsc1 - total.tsc0
+	tscToSec := func(c uint64) float64 {
+		return float64(c) / float64(fr.EstFreq)
+	}
+	pct := func(n uint64) float64 {
+		return 100 * float64(n) / float64(dt)
+	}
+	log.Print("Time report:")
+	for i := range p.results {
+		// Rotate the list by one so that the total time comes last in the output.
+		r := &p.results[(i+1)%len(p.results)]
+		diff := r.tsc1 - r.tsc0
+		log.Printf(
+			"%d. %-25s %11d cycles   %5.2f seconds   (%6.2f %%)",
+			i+1, r.name, diff, tscToSec(diff), pct(diff),
+		)
+	}
 }
