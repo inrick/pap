@@ -22,16 +22,15 @@ var (
 )
 
 func main() {
-	var prof Profiler
-	if err := run(&prof); err != nil {
+	if err := run(); err != nil {
 		log.Fatal(err)
 	}
-	prof.PrintReport()
+	PrintReport()
 }
 
-func run(prof *Profiler) error {
-	totId := prof.Start("Total runtime")
-	defer prof.Stop(totId)
+func run() error {
+	ProfilerBegin(ProfTotalRuntime)
+	defer ProfilerEnd(ProfTotalRuntime)
 	log.SetFlags(0)
 	log.SetPrefix("[haversine] ")
 	var (
@@ -67,23 +66,23 @@ func run(prof *Profiler) error {
 	if len(args) == 2 {
 		comparisonFile = args[1]
 	}
-	inputId := prof.Start("Read input file")
+	ProfilerBegin(ProfReadInputFile)
 	buf, err := ioutil.ReadFile(inputFile)
-	prof.Stop(inputId)
 	if err != nil {
 		return err
 	}
-	parseId := prof.Start("Parse input file")
+	ProfilerEnd(ProfReadInputFile)
 	pp, err := ParsePairs(buf)
-	prof.Stop(parseId)
 	if err != nil {
 		return fmt.Errorf("%s failed to parse: %v", inputFile, err)
 	}
-	calcId := prof.Start("Calculate distances")
 	dists, avg := Distances(pp)
-	prof.Stop(calcId)
 	if comparisonFile != "" {
-		diffs, err := CompareReferenceFile(dists, avg, comparisonFile, prof)
+		distsRef, err := ReadReferenceFile(comparisonFile)
+		if err != nil {
+			return err
+		}
+		diffs, err := CompareReferenceFile(dists, avg, distsRef)
 		if err != nil {
 			return err
 		}
@@ -111,24 +110,13 @@ func run(prof *Profiler) error {
 }
 
 func CompareReferenceFile(
-	dists []float64, avg float64, comparisonFile string, prof *Profiler,
+	dists []float64, avg float64, distsRef []float64,
 ) ([]Diff, error) {
-	readId := prof.Start("Read reference file")
-	f, err := os.Open(comparisonFile)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	distsRef, err := ReadReference(f)
-	prof.Stop(readId)
-	if err != nil {
-		return nil, err
-	}
+	ProfilerBegin(ProfCompareReferenceFile)
+	defer ProfilerEnd(ProfCompareReferenceFile)
 	if N0, N1 := len(dists), len(distsRef); N0 != N1 {
 		return nil, fmt.Errorf("different length to comparison file: %d != %d", N0, N1)
 	}
-	cmpId := prof.Start("Compare reference file")
-	defer prof.Stop(cmpId)
 	var diffs []Diff
 	for i, d0 := range dists {
 		d1 := distsRef[i]
@@ -148,6 +136,8 @@ type Diff struct {
 }
 
 func Distances(pp []Pair) ([]float64, float64) {
+	ProfilerBegin(ProfCalculateDistances)
+	defer ProfilerEnd(ProfCalculateDistances)
 	dists := make([]float64, len(pp))
 	N := float64(len(pp))
 	var avg float64
@@ -174,6 +164,8 @@ type Pair struct {
 }
 
 func ParsePairs(buf []byte) ([]Pair, error) {
+	ProfilerBegin(ProfParsePairs)
+	defer ProfilerEnd(ProfParsePairs)
 	p := PairsParser{buf: buf}
 	return p.Parse()
 }
@@ -201,6 +193,8 @@ func (p *PairsParser) Parse() ([]Pair, error) {
 }
 
 func (p *PairsParser) ParsePair() Pair {
+	ProfilerBegin(ProfParsePair)
+	defer ProfilerEnd(ProfParsePair)
 	var pair Pair
 	if p.err != nil {
 		return pair
@@ -248,6 +242,8 @@ func (p *PairsParser) Ident() []byte {
 }
 
 func (p *PairsParser) Number() float64 {
+	ProfilerBegin(ProfParseNumber)
+	defer ProfilerEnd(ProfParseNumber)
 	start := p.pos
 	for p.pos < len(p.buf) && IsNumChar(p.buf[p.pos]) {
 		p.pos++
@@ -341,6 +337,8 @@ var (
 )
 
 func ParseFloat(s []byte) (float64, error) {
+	ProfilerBegin(ProfParseFloat)
+	defer ProfilerEnd(ProfParseFloat)
 	if len(s) == 0 {
 		return 0, ErrParseFloatEmpty
 	}
@@ -393,6 +391,21 @@ func Haversine(p Pair) float64 {
 	return earthRadius * c
 }
 
+func ReadReferenceFile(refFile string) ([]float64, error) {
+	ProfilerBegin(ProfReadReferenceFile)
+	defer ProfilerEnd(ProfReadReferenceFile)
+	f, err := os.Open(refFile)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	distsRef, err := ReadReference(f)
+	if err != nil {
+		return nil, err
+	}
+	return distsRef, nil
+}
+
 // Read reference file format which is a length (int64) followed by that number
 // of float64, describing the haversine distance of each pair of points.
 func ReadReference(r io.Reader) ([]float64, error) {
@@ -417,48 +430,4 @@ func ReadReference(r io.Reader) ([]float64, error) {
 		dists[i] = *(*float64)(unsafe.Pointer(&buf[8+8*i]))
 	}
 	return dists, nil
-}
-
-// Not goroutine safe
-type Profiler struct {
-	results []ProfResult
-}
-
-type ProfResult struct {
-	name string
-	tsc0 uint64
-	tsc1 uint64
-}
-
-func (p *Profiler) Start(fnName string) int {
-	res := ProfResult{name: fnName, tsc0: Rdtsc()}
-	p.results = append(p.results, res)
-	id := len(p.results) - 1
-	return id
-}
-
-func (p *Profiler) Stop(id int) {
-	p.results[id].tsc1 = Rdtsc()
-}
-
-func (p *Profiler) PrintReport() {
-	fr := EstimateCpuFrequency(10)
-	total := p.results[0]
-	dt := total.tsc1 - total.tsc0
-	tscToSec := func(c uint64) float64 {
-		return float64(c) / float64(fr.EstFreq)
-	}
-	pct := func(n uint64) float64 {
-		return 100 * float64(n) / float64(dt)
-	}
-	log.Print("Time report:")
-	for i := range p.results {
-		// Rotate the list by one so that the total time comes last in the output.
-		r := &p.results[(i+1)%len(p.results)]
-		diff := r.tsc1 - r.tsc0
-		log.Printf(
-			"%d. %-25s %11d cycles   %5.2f seconds   (%6.2f %%)",
-			i+1, r.name, diff, tscToSec(diff), pct(diff),
-		)
-	}
 }

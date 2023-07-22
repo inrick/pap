@@ -33,7 +33,7 @@ func EstimateCpuFrequency(millisToWait uint64) CpuFreqReport {
 		dt = uint64(t1.Sub(t0).Nanoseconds())
 	}
 	tsc1 := Rdtsc()
-	dtsc := (tsc1 - tsc0)
+	dtsc := tsc1 - tsc0
 	cpuFreqEst := dtsc * 1000 / millisToWait
 	return CpuFreqReport{
 		Nanos:   dt,
