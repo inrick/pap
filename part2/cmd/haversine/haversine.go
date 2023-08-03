@@ -10,9 +10,9 @@ import (
 	"log"
 	"math"
 	"os"
-	"runtime"
-	"runtime/pprof"
 	"unsafe"
+
+	"part2/internal"
 )
 
 var (
@@ -25,53 +25,30 @@ func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
-	PrintReport()
+	PrintProfilerReport()
 }
 
 func run() error {
-	ProfilerBegin(ProfTotalRuntime)
-	defer ProfilerEnd(ProfTotalRuntime)
+	defer ProfilerEnd(ProfilerBegin(ProfTotalRuntime))
 	log.SetFlags(0)
 	log.SetPrefix("[haversine] ")
-	var (
-		cpuProf   string
-		memProf   string
-		printFreq bool
-	)
-	flag.StringVar(&cpuProf, "cpuprof", "", "cpu profile output file")
-	flag.StringVar(&memProf, "memprof", "", "mem profile output file")
+	var printFreq bool
 	flag.BoolVar(&printFreq, "freq", false, "print estimated CPU frequency")
 	flag.Parse()
 	if printFreq {
-		PrintCpuFrequency()
+		internal.PrintCpuFrequency()
 		return nil
 	}
 	args := flag.Args()
 	if nargs := len(args); nargs < 1 || 2 < nargs {
 		log.Fatalf("usage: %s <file.json> [file.f64]", os.Args[0])
 	}
-	if cpuProf != "" {
-		f, err := os.Create(cpuProf)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		if err := pprof.StartCPUProfile(f); err != nil {
-			return err
-		}
-		defer pprof.StopCPUProfile()
-	}
 	inputFile := args[0]
 	var comparisonFile string
 	if len(args) == 2 {
 		comparisonFile = args[1]
 	}
-	ProfilerBegin(ProfReadInputFile)
-	buf, err := ioutil.ReadFile(inputFile)
-	if err != nil {
-		return err
-	}
-	ProfilerEnd(ProfReadInputFile)
+	buf, err := ReadInputFile(inputFile)
 	pp, err := ParsePairs(buf)
 	if err != nil {
 		return fmt.Errorf("%s failed to parse: %v", inputFile, err)
@@ -95,25 +72,18 @@ func run() error {
 		}
 	}
 	log.Printf("average=%f", avg)
-	if memProf != "" {
-		f, err := os.Create(memProf)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		runtime.GC()
-		if err := pprof.WriteHeapProfile(f); err != nil {
-			return err
-		}
-	}
 	return nil
+}
+
+func ReadInputFile(file string) ([]byte, error) {
+	defer ProfilerEnd(ProfilerBegin(ProfReadInputFile))
+	return ioutil.ReadFile(file)
 }
 
 func CompareReferenceFile(
 	dists []float64, avg float64, distsRef []float64,
 ) ([]Diff, error) {
-	ProfilerBegin(ProfCompareReferenceFile)
-	defer ProfilerEnd(ProfCompareReferenceFile)
+	defer ProfilerEnd(ProfilerBegin(ProfCompareReferenceFile))
 	if N0, N1 := len(dists), len(distsRef); N0 != N1 {
 		return nil, fmt.Errorf("different length to comparison file: %d != %d", N0, N1)
 	}
@@ -136,8 +106,7 @@ type Diff struct {
 }
 
 func Distances(pp []Pair) ([]float64, float64) {
-	ProfilerBegin(ProfCalculateDistances)
-	defer ProfilerEnd(ProfCalculateDistances)
+	defer ProfilerEnd(ProfilerBegin(ProfCalculateDistances))
 	dists := make([]float64, len(pp))
 	N := float64(len(pp))
 	var avg float64
@@ -164,8 +133,7 @@ type Pair struct {
 }
 
 func ParsePairs(buf []byte) ([]Pair, error) {
-	ProfilerBegin(ProfParsePairs)
-	defer ProfilerEnd(ProfParsePairs)
+	defer ProfilerEnd(ProfilerBegin(ProfParsePairs))
 	p := PairsParser{buf: buf}
 	return p.Parse()
 }
@@ -193,8 +161,7 @@ func (p *PairsParser) Parse() ([]Pair, error) {
 }
 
 func (p *PairsParser) ParsePair() Pair {
-	ProfilerBegin(ProfParsePair)
-	defer ProfilerEnd(ProfParsePair)
+	defer ProfilerEnd(ProfilerBegin(ProfParsePair))
 	var pair Pair
 	if p.err != nil {
 		return pair
@@ -242,8 +209,7 @@ func (p *PairsParser) Ident() []byte {
 }
 
 func (p *PairsParser) Number() float64 {
-	ProfilerBegin(ProfParseNumber)
-	defer ProfilerEnd(ProfParseNumber)
+	defer ProfilerEnd(ProfilerBegin(ProfParseNumber))
 	start := p.pos
 	for p.pos < len(p.buf) && IsNumChar(p.buf[p.pos]) {
 		p.pos++
@@ -337,8 +303,7 @@ var (
 )
 
 func ParseFloat(s []byte) (float64, error) {
-	ProfilerBegin(ProfParseFloat)
-	defer ProfilerEnd(ProfParseFloat)
+	defer ProfilerEnd(ProfilerBegin(ProfParseFloat))
 	if len(s) == 0 {
 		return 0, ErrParseFloatEmpty
 	}
@@ -392,8 +357,7 @@ func Haversine(p Pair) float64 {
 }
 
 func ReadReferenceFile(refFile string) ([]float64, error) {
-	ProfilerBegin(ProfReadReferenceFile)
-	defer ProfilerEnd(ProfReadReferenceFile)
+	defer ProfilerEnd(ProfilerBegin(ProfReadReferenceFile))
 	f, err := os.Open(refFile)
 	if err != nil {
 		return nil, err

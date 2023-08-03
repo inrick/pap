@@ -2,7 +2,11 @@
 
 package main
 
-import "log"
+import (
+	"log"
+
+	"part2/internal"
+)
 
 // This profiler is not concurrency safe. If/when the code needs that, we will
 // have to consider a different approach. Perhaps a profiler per goroutine
@@ -17,26 +21,47 @@ type Profiler struct {
 	results [ProfileCount]ProfileResult
 }
 
-var prof Profiler
+var (
+	prof          Profiler
+	currProfScope ProfileKind
+)
 
 type ProfileResult struct {
-	begin   uint64
-	elapsed uint64
+	elapsedIncl uint64 // Including child blocks
+	elapsedExcl uint64 // Excluding child blocks
+	count       uint64
 }
 
-func ProfilerBegin(kind ProfileKind) {
-	prof.results[kind].begin = Rdtsc()
+type ProfileBlock struct {
+	kind   ProfileKind
+	parent ProfileKind
+	start  uint64
 }
 
-func ProfilerEnd(kind ProfileKind) {
-	rec := &prof.results[kind]
-	rec.elapsed += Rdtsc() - rec.begin
+func ProfilerBegin(kind ProfileKind) ProfileBlock {
+	bl := ProfileBlock{
+		kind:   kind,
+		parent: currProfScope,
+		start:  internal.Rdtsc(),
+	}
+	currProfScope = kind
+	return bl
 }
 
-func PrintReport() {
-	freq := EstimateCpuFrequency(10)
+func ProfilerEnd(bl ProfileBlock) {
+	rec := &prof.results[bl.kind]
+	elapsed := internal.Rdtsc() - bl.start
+	rec.elapsedIncl += elapsed
+	rec.elapsedExcl += elapsed
+	prof.results[bl.parent].elapsedExcl -= elapsed
+	rec.count++
+	currProfScope = bl.parent
+}
+
+func PrintProfilerReport() {
+	freq := internal.EstimateCpuFrequency(10)
 	total := prof.results[ProfTotalRuntime]
-	dt := total.elapsed
+	dt := total.elapsedIncl
 	tscToSec := func(c uint64) float64 {
 		return float64(c) / float64(freq.EstFreq)
 	}
@@ -44,12 +69,14 @@ func PrintReport() {
 		return 100 * float64(n) / float64(dt)
 	}
 	log.Print("Time report:")
-	for kind := ProfUnused + 1; kind < ProfileCount; kind++ {
+	for kind := ProfNone + 1; kind < ProfileCount; kind++ {
 		r := &prof.results[kind]
-		diff := r.elapsed
+		diff := r.elapsedIncl
 		log.Printf(
-			"%2d. %-25s %11d cycles   %5.2f seconds   %6.2f %%",
-			kind, kind.String(), diff, tscToSec(diff), pct(diff),
+			"%2d. %-25s [%9d] %11d cycles   %5.2f seconds   %6.2f %%   (excl. %5.2f seconds   %6.2f %%)",
+			kind, kind.String(), r.count,
+			diff, tscToSec(diff), pct(diff),
+			tscToSec(r.elapsedExcl), pct(r.elapsedExcl),
 		)
 	}
 }

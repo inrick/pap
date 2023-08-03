@@ -8,7 +8,7 @@ type ProfileKind int32
 
 //go:generate stringer -type ProfileKind
 const (
-	ProfUnused ProfileKind = iota
+	ProfNone ProfileKind = iota
 	ProfReadInputFile
 	ProfParsePairs
 	ProfParsePair

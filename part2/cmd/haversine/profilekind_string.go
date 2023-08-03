@@ -8,7 +8,7 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[ProfUnused-0]
+	_ = x[ProfNone-0]
 	_ = x[ProfReadInputFile-1]
 	_ = x[ProfParsePairs-2]
 	_ = x[ProfParsePair-3]
@@ -21,9 +21,9 @@ func _() {
 	_ = x[ProfileCount-10]
 }
 
-const _ProfileKind_name = "ProfUnusedProfReadInputFileProfParsePairsProfParsePairProfParseNumberProfParseFloatProfCalculateDistancesProfReadReferenceFileProfCompareReferenceFileProfTotalRuntimeProfileCount"
+const _ProfileKind_name = "ProfNoneProfReadInputFileProfParsePairsProfParsePairProfParseNumberProfParseFloatProfCalculateDistancesProfReadReferenceFileProfCompareReferenceFileProfTotalRuntimeProfileCount"
 
-var _ProfileKind_index = [...]uint8{0, 10, 27, 41, 54, 69, 83, 105, 126, 150, 166, 178}
+var _ProfileKind_index = [...]uint8{0, 8, 25, 39, 52, 67, 81, 103, 124, 148, 164, 176}
 
 func (i ProfileKind) String() string {
 	if i < 0 || i >= ProfileKind(len(_ProfileKind_index)-1) {
