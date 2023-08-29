@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math"
 	"os"
@@ -76,14 +75,20 @@ func run() error {
 }
 
 func ReadInputFile(file string) ([]byte, error) {
-	defer ProfilerEnd(ProfilerBegin(ProfReadInputFile))
-	return ioutil.ReadFile(file)
+	stat, err := os.Stat(file)
+	if err != nil {
+		return nil, err
+	}
+	size := uint64(stat.Size())
+	defer ProfilerEnd(ProfilerBeginWithBandwidth(ProfReadInputFile, size))
+	return os.ReadFile(file)
 }
 
 func CompareReferenceFile(
 	dists []float64, avg float64, distsRef []float64,
 ) ([]Diff, error) {
-	defer ProfilerEnd(ProfilerBegin(ProfCompareReferenceFile))
+	expectedBytes := uint64(8 * (len(dists) + len(distsRef)))
+	defer ProfilerEnd(ProfilerBeginWithBandwidth(ProfCompareReferenceFile, expectedBytes))
 	if N0, N1 := len(dists), len(distsRef); N0 != N1 {
 		return nil, fmt.Errorf("different length to comparison file: %d != %d", N0, N1)
 	}
@@ -106,7 +111,8 @@ type Diff struct {
 }
 
 func Distances(pp []Pair) ([]float64, float64) {
-	defer ProfilerEnd(ProfilerBegin(ProfCalculateDistances))
+	expectedBytes := uint64(len(pp)) * uint64(unsafe.Sizeof(pp[0]))
+	defer ProfilerEnd(ProfilerBeginWithBandwidth(ProfCalculateDistances, expectedBytes))
 	dists := make([]float64, len(pp))
 	N := float64(len(pp))
 	var avg float64
@@ -357,7 +363,12 @@ func Haversine(p Pair) float64 {
 }
 
 func ReadReferenceFile(refFile string) ([]float64, error) {
-	defer ProfilerEnd(ProfilerBegin(ProfReadReferenceFile))
+	stat, err := os.Stat(refFile)
+	if err != nil {
+		return nil, err
+	}
+	size := uint64(stat.Size())
+	defer ProfilerEnd(ProfilerBeginWithBandwidth(ProfReadReferenceFile, size))
 	f, err := os.Open(refFile)
 	if err != nil {
 		return nil, err

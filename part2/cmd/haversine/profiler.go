@@ -30,6 +30,7 @@ type ProfileResult struct {
 	elapsedIncl uint64 // Including child blocks
 	elapsedExcl uint64 // Excluding child blocks
 	count       uint64
+	bytesCount  uint64
 }
 
 type ProfileBlock struct {
@@ -46,6 +47,11 @@ func ProfilerBegin(kind ProfileKind) ProfileBlock {
 	}
 	currProfScope = kind
 	return bl
+}
+
+func ProfilerBeginWithBandwidth(kind ProfileKind, bytesCount uint64) ProfileBlock {
+	prof.results[kind].bytesCount += bytesCount
+	return ProfilerBegin(kind)
 }
 
 func ProfilerEnd(bl ProfileBlock) {
@@ -71,12 +77,19 @@ func PrintProfilerReport() {
 	log.Print("Time report:")
 	for kind := ProfNone + 1; kind < ProfileCount; kind++ {
 		r := &prof.results[kind]
-		diff := r.elapsedIncl
 		log.Printf(
 			"%2d. %-25s [%9d] %11d cycles   %5.2f seconds   %6.2f %%   (excl. %5.2f seconds   %6.2f %%)",
 			kind, kind.String(), r.count,
-			diff, tscToSec(diff), pct(diff),
+			r.elapsedIncl,
+			tscToSec(r.elapsedIncl), pct(r.elapsedIncl),
 			tscToSec(r.elapsedExcl), pct(r.elapsedExcl),
 		)
+		if r.bytesCount > 0 {
+			seconds := tscToSec(r.elapsedIncl)
+			bytesPerSec := float64(r.bytesCount) / seconds
+			megabytes := float64(r.bytesCount) / (1 << 20)
+			gbsPerSec := bytesPerSec / (1 << 30)
+			log.Printf("    (processed %.3f MB at %.2f GB/s)", megabytes, gbsPerSec)
+		}
 	}
 }
