@@ -21,6 +21,8 @@ debuggen:
 debughav:
 	@go build -gcflags="-N" ./cmd/haversine
 	@gdlv exec ./haversine ./tmp/output.json ./tmp/output.f64
+reptest:
+	@go run ./cmd/reptest ./tmp/output.json
 bench:
 	@go test -bench=. ./...
 test:

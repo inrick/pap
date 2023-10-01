@@ -58,3 +58,7 @@ func PrintCpuFrequency() {
 	)
 	log.Printf("CPU frequency reported by cpuid: %d MHz", CpuidFreqMhz())
 }
+
+func TimestampToSec(ts uint64, estFreq uint64) float64 {
+	return float64(ts) / float64(estFreq)
+}
