@@ -33,6 +33,7 @@ func TestDisassemble(t *testing.T) {
 		"listing_0039_more_movs",
 		"listing_0040_challenge_movs",
 		"listing_0041_add_sub_cmp_jnz",
+		//"listing_0042_completionist_decode",
 		"listing_0043_immediate_movs",
 		"listing_0044_register_movs",
 		"listing_0045_challenge_register_movs",
