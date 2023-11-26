@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math/bits"
 	"os"
@@ -38,7 +37,7 @@ func run() error {
 			return fmt.Errorf("could not assemble %s: %w", inputFile, err)
 		}
 	}
-	buf, err := ioutil.ReadFile(inputFile)
+	buf, err := os.ReadFile(inputFile)
 	if err != nil {
 		return err
 	}
