@@ -2,13 +2,13 @@ package reptest
 
 import (
 	"fmt"
-	"part2/internal"
+	"part3/internal"
 )
 
 type TestMode int32
 
 const (
-	TestModeUninitialized = iota
+	TestModeUninitialized TestMode = iota
 	TestModeTesting
 	TestModeCompleted
 	TestModeError

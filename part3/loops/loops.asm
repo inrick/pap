@@ -1,0 +1,46 @@
+; On Linux x64 ABI:
+; rdi = 1st arg,
+; rsi = 2nd arg,
+; rax = 1st return register.
+;
+; Reference:
+; https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build
+
+global MovAllBytes
+global NopAllBytes
+global CmpAllBytes
+global DecAllBytes
+
+section .text
+
+MovAllBytes:
+  xor rax, rax
+.loop:
+  mov [rsi + rax], al
+  inc rax
+  cmp rax, rdi
+  jb .loop
+  ret
+
+NopAllBytes:
+  xor rax, rax
+.loop:
+  db 0x0f, 0x1f, 0x00 ; This is apparently a 3-byte NOP
+  inc rax
+  cmp rax, rdi
+  jb .loop
+  ret
+
+CmpAllBytes:
+  xor rax, rax
+.loop:
+  inc rax
+  cmp rax, rdi
+  jb .loop
+  ret
+
+DecAllBytes:
+.loop:
+  dec rdi
+  jnz .loop
+  ret

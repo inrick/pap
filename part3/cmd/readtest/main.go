@@ -6,8 +6,8 @@ import (
 	"io"
 	"log"
 	"os"
-	"part2/internal"
-	"part2/internal/reptest"
+	"part3/internal"
+	"part3/internal/reptest"
 )
 
 var TestFunctions = []struct {
