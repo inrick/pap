@@ -1,6 +1,6 @@
 .PHONY: readtest optest asm bench test clean
 all: optest
-optest:
+optest: asm
 	@go run ./cmd/optest
 readtest:
 	@go run ./cmd/readtest ./tmp/output.json
@@ -13,6 +13,6 @@ bench:
 test:
 	@go test -v ./...
 clean:
-	@rm -f ./generate ./haversine ./readtest
+	@rm -f ./optest ./readtest
 	@rm -f ./loops/libloops.a ./loops/loops.o
 	@go clean
