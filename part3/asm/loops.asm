@@ -7,9 +7,11 @@
 ; https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build
 
 global MovAllBytes
-global NopAllBytes
+global Nop3x1AllBytes
 global CmpAllBytes
 global DecAllBytes
+global Nop1x3AllBytes
+global Nop1x9AllBytes
 
 section .text
 
@@ -22,7 +24,7 @@ MovAllBytes:
   jb .loop
   ret
 
-NopAllBytes:
+Nop3x1AllBytes:
   xor rax, rax
 .loop:
   db 0x0f, 0x1f, 0x00 ; This is apparently a 3-byte NOP
@@ -43,4 +45,32 @@ DecAllBytes:
 .loop:
   dec rdi
   jnz .loop
+  ret
+
+Nop1x3AllBytes:
+  xor rax, rax
+.loop:
+  nop
+  nop
+  nop
+  inc rax
+  cmp rax, rdi
+  jb .loop
+  ret
+
+Nop1x9AllBytes:
+  xor rax, rax
+.loop:
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  nop
+  inc rax
+  cmp rax, rdi
+  jb .loop
   ret

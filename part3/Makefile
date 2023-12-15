@@ -5,14 +5,14 @@ optest: asm
 readtest:
 	@go run ./cmd/readtest ./tmp/output.json
 asm:
-	@nasm -f elf64 -o loops/loops.o loops/loops.asm
-	@ar q loops/libloops.a loops/loops.o
-	@rm loops/loops.o
+	@nasm -f elf64 -o asm/loops.o asm/loops.asm
+	@ar q asm/libloops.a asm/loops.o
+	@rm asm/loops.o
 bench:
 	@go test -bench=. ./...
 test:
 	@go test -v ./...
 clean:
 	@rm -f ./optest ./readtest
-	@rm -f ./loops/libloops.a ./loops/loops.o
+	@rm -f ./asm/libloops.a ./asm/loops.o
 	@go clean
