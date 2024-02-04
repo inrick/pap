@@ -1,5 +1,7 @@
 .PHONY: readtest optest asm bench test clean
-all: optest
+all: rwporttest
+rwporttest: asm
+	@go run ./cmd/rwporttest
 optest: asm
 	@go run ./cmd/optest
 readtest:

@@ -8,6 +8,14 @@ package asm
 // extern void DecAllBytes(uint64_t count);
 // extern void Nop1x3AllBytes(uint64_t count);
 // extern void Nop1x9AllBytes(uint64_t count);
+// extern void Read_x1(uint64_t count, uint8_t *data);
+// extern void Read_x2(uint64_t count, uint8_t *data);
+// extern void Read_x3(uint64_t count, uint8_t *data);
+// extern void Read_x4(uint64_t count, uint8_t *data);
+// extern void Write_x1(uint64_t count, uint8_t *data);
+// extern void Write_x2(uint64_t count, uint8_t *data);
+// extern void Write_x3(uint64_t count, uint8_t *data);
+// extern void Write_x4(uint64_t count, uint8_t *data);
 import "C"
 import "unsafe"
 
@@ -33,4 +41,36 @@ func Nop1x3AllBytes(bb []byte) {
 
 func Nop1x9AllBytes(bb []byte) {
 	C.Nop1x9AllBytes(C.uint64_t(len(bb)))
+}
+
+func Read_x1(repeatCount uint64, bb []byte) {
+	C.Read_x1(C.uint64_t(repeatCount), (*C.uint8_t)(unsafe.SliceData(bb)))
+}
+
+func Read_x2(repeatCount uint64, bb []byte) {
+	C.Read_x2(C.uint64_t(repeatCount), (*C.uint8_t)(unsafe.SliceData(bb)))
+}
+
+func Read_x3(repeatCount uint64, bb []byte) {
+	C.Read_x3(C.uint64_t(repeatCount), (*C.uint8_t)(unsafe.SliceData(bb)))
+}
+
+func Read_x4(repeatCount uint64, bb []byte) {
+	C.Read_x4(C.uint64_t(repeatCount), (*C.uint8_t)(unsafe.SliceData(bb)))
+}
+
+func Write_x1(repeatCount uint64, bb []byte) {
+	C.Write_x1(C.uint64_t(repeatCount), (*C.uint8_t)(unsafe.SliceData(bb)))
+}
+
+func Write_x2(repeatCount uint64, bb []byte) {
+	C.Write_x2(C.uint64_t(repeatCount), (*C.uint8_t)(unsafe.SliceData(bb)))
+}
+
+func Write_x3(repeatCount uint64, bb []byte) {
+	C.Write_x3(C.uint64_t(repeatCount), (*C.uint8_t)(unsafe.SliceData(bb)))
+}
+
+func Write_x4(repeatCount uint64, bb []byte) {
+	C.Write_x4(C.uint64_t(repeatCount), (*C.uint8_t)(unsafe.SliceData(bb)))
 }
