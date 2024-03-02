@@ -1,5 +1,7 @@
 .PHONY: readtest optest asm bench test clean
-all: rwporttest
+all: simdreadtest
+simdreadtest: asm
+	@go run ./cmd/simdreadtest
 rwporttest: asm
 	@go run ./cmd/rwporttest
 optest: asm
