@@ -14,6 +14,8 @@ func main() {
 	gen8x2()
 	gen16x2()
 	gen32x2()
+	genCacheFinder()
+	//genCacheFinder_alt()
 	Generate()
 }
 
@@ -100,6 +102,67 @@ func gen32x2() {
 	VMOVDQU(Mem{Base: ptr, Disp: 32}, Y1)
 	ADDQ(Imm(64), rep)
 	CMPQ(rep, repeatCount)
+	JB(LabelRef("loop"))
+
+	RET()
+}
+
+func genCacheFinder() {
+	TEXT(
+		"ReadSuccessiveSizes_go",
+		NOSPLIT,
+		"func(repeatCount uint64, bb []byte, offsetMask uint64)",
+	)
+
+	repeatCount := Load(Param("repeatCount"), GP64())
+	ptr := Load(Param("bb").Base(), GP64())
+	mask := Load(Param("offsetMask"), GP64())
+	offset := GP64()
+	offsetPtr := GP64()
+	count := GP64()
+	XORQ(count, count)
+	XORQ(offset, offset)
+
+	Label("loop")
+	MOVQ(ptr, offsetPtr)
+	ADDQ(offset, offsetPtr)
+	const unroll = 16
+	for i := 0; i < unroll; i++ {
+		VMOVDQU(Mem{Base: offsetPtr, Disp: 32 * i}, Y0)
+	}
+	ADDQ(U32(unroll*32), count)
+	MOVQ(count, offset)
+	ANDQ(mask, offset)
+	CMPQ(count, repeatCount)
+	JB(LabelRef("loop"))
+
+	RET()
+}
+
+func genCacheFinder_alt() {
+	TEXT(
+		"ReadSuccessiveSizes_go",
+		NOSPLIT,
+		"func(repeatCount uint64, bb []byte, offsetMask uint64)",
+	)
+
+	repeatCount := Load(Param("repeatCount"), RDI)
+	ptr := Load(Param("bb").Base(), RSI)
+	mask := Load(Param("offsetMask"), RDX)
+	XORQ(RAX, RAX)
+	XORQ(R8, R8)
+
+	Label("loop")
+	MOVQ(ptr, R9)
+	ADDQ(R8, R9)
+	VMOVDQU(Mem{Base: R9}, Y0)
+	VMOVDQU(Mem{Base: R9, Disp: 32}, Y0)
+	VMOVDQU(Mem{Base: R9, Disp: 64}, Y0)
+	VMOVDQU(Mem{Base: R9, Disp: 96}, Y0)
+	ADDQ(Imm(128), RAX)
+	MOVQ(RAX, R8)
+	ANDQ(mask, R8)
+	CMPQ(RAX, repeatCount)
 	JB(LabelRef("loop"))
 
 	RET()

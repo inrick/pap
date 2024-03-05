@@ -1,6 +1,7 @@
 ; On Linux x64 ABI:
 ; rdi = 1st arg,
 ; rsi = 2nd arg,
+; rdx = 3rd arg,
 ; rax = 1st return register.
 ;
 ; Reference:
@@ -24,6 +25,7 @@ global Read_4x2
 global Read_8x2
 global Read_16x2
 global Read_32x2
+global ReadSuccessiveSizes
 
 section .text
 
@@ -203,6 +205,36 @@ Read_32x2:
   vmovdqu ymm0, [rsi]
   vmovdqu ymm1, [rsi + 32]
   add rax, 64
+  cmp rax, rdi
+  jb .loop
+  ret
+
+ReadSuccessiveSizes:
+  xor rax, rax
+  xor r8, r8
+  align 64
+.loop:
+  mov r9, rsi
+  add r9, r8
+  vmovdqu ymm0, [r9]
+  vmovdqu ymm0, [r9 + 32]
+  vmovdqu ymm0, [r9 + 64]
+  vmovdqu ymm0, [r9 + 96]
+  vmovdqu ymm0, [r9 + 128]
+  vmovdqu ymm0, [r9 + 160]
+  vmovdqu ymm0, [r9 + 192]
+  vmovdqu ymm0, [r9 + 224]
+  vmovdqu ymm0, [r9 + 256]
+  vmovdqu ymm0, [r9 + 288]
+  vmovdqu ymm0, [r9 + 320]
+  vmovdqu ymm0, [r9 + 352]
+  vmovdqu ymm0, [r9 + 384]
+  vmovdqu ymm0, [r9 + 416]
+  vmovdqu ymm0, [r9 + 448]
+  vmovdqu ymm0, [r9 + 480]
+  add rax, 512
+  mov r8, rax
+  and r8, rdx
   cmp rax, rdi
   jb .loop
   ret
