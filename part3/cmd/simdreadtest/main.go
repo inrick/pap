@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"part3/asm"
+	"part3/goasm"
 	"part3/internal"
 	"part3/internal/reptest"
 )
@@ -17,9 +18,13 @@ var TestFunctions = []struct {
 	Func func(*reptest.Tester, Params)
 }{
 	{"Read_4x2", mk(asm.Read_4x2)},
+	{"Read_4x2_go", mk(goasm.Read_4x2_go)},
 	{"Read_8x2", mk(asm.Read_8x2)},
+	{"Read_8x2_go", mk(goasm.Read_8x2_go)},
 	{"Read_16x2", mk(asm.Read_16x2)},
+	{"Read_16x2_go", mk(goasm.Read_16x2_go)},
 	{"Read_32x2", mk(asm.Read_32x2)},
+	{"Read_32x2_go", mk(goasm.Read_32x2_go)},
 }
 
 func main() {
