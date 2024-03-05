@@ -1,6 +1,6 @@
 //go:build !noprofiler
 
-package main
+package profiler
 
 import (
 	"log"
@@ -18,7 +18,7 @@ import (
 // causes a significant slowdown.
 
 type Profiler struct {
-	results [ProfileCount]ProfileResult
+	results [KindCount]Result
 }
 
 var (
@@ -26,21 +26,21 @@ var (
 	currProfScope ProfileKind
 )
 
-type ProfileResult struct {
+type Result struct {
 	elapsedIncl uint64 // Including child blocks
 	elapsedExcl uint64 // Excluding child blocks
 	count       uint64
 	bytesCount  uint64
 }
 
-type ProfileBlock struct {
+type Block struct {
 	kind   ProfileKind
 	parent ProfileKind
 	start  uint64
 }
 
-func ProfilerBegin(kind ProfileKind) ProfileBlock {
-	bl := ProfileBlock{
+func Begin(kind ProfileKind) Block {
+	bl := Block{
 		kind:   kind,
 		parent: currProfScope,
 		start:  internal.Rdtsc(),
@@ -49,12 +49,12 @@ func ProfilerBegin(kind ProfileKind) ProfileBlock {
 	return bl
 }
 
-func ProfilerBeginWithBandwidth(kind ProfileKind, bytesCount uint64) ProfileBlock {
+func BeginWithBandwidth(kind ProfileKind, bytesCount uint64) Block {
 	prof.results[kind].bytesCount += bytesCount
-	return ProfilerBegin(kind)
+	return Begin(kind)
 }
 
-func ProfilerEnd(bl ProfileBlock) {
+func End(bl Block) {
 	rec := &prof.results[bl.kind]
 	elapsed := internal.Rdtsc() - bl.start
 	rec.elapsedIncl += elapsed
@@ -64,9 +64,9 @@ func ProfilerEnd(bl ProfileBlock) {
 	currProfScope = bl.parent
 }
 
-func PrintProfilerReport() {
+func PrintReport() {
 	freq := internal.EstimateCpuFrequency(10)
-	total := prof.results[ProfTotalRuntime]
+	total := prof.results[KindTotalRuntime]
 	dt := total.elapsedIncl
 	tscToSec := func(c uint64) float64 {
 		return float64(c) / float64(freq.EstFreq)
@@ -75,7 +75,7 @@ func PrintProfilerReport() {
 		return 100 * float64(n) / float64(dt)
 	}
 	log.Print("Time report:")
-	for kind := ProfNone + 1; kind < ProfileCount; kind++ {
+	for kind := KindNone + 1; kind < KindCount; kind++ {
 		r := &prof.results[kind]
 		log.Printf(
 			"%2d. %-25s [%9d] %11d cycles   %5.2f seconds   %6.2f %%   (excl. %5.2f seconds   %6.2f %%)",

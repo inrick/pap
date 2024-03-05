@@ -12,6 +12,7 @@ import (
 	"unsafe"
 
 	"part2/internal"
+	"part2/profiler"
 )
 
 var (
@@ -24,11 +25,11 @@ func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
-	PrintProfilerReport()
+	profiler.PrintReport()
 }
 
 func run() error {
-	defer ProfilerEnd(ProfilerBegin(ProfTotalRuntime))
+	defer profiler.End(profiler.Begin(profiler.KindTotalRuntime))
 	log.SetFlags(0)
 	log.SetPrefix("[haversine] ")
 	var printFreq bool
@@ -80,7 +81,7 @@ func ReadInputFile(file string) ([]byte, error) {
 		return nil, err
 	}
 	size := uint64(stat.Size())
-	defer ProfilerEnd(ProfilerBeginWithBandwidth(ProfReadInputFile, size))
+	defer profiler.End(profiler.BeginWithBandwidth(profiler.KindReadInputFile, size))
 	return os.ReadFile(file)
 }
 
@@ -88,7 +89,7 @@ func CompareReferenceFile(
 	dists []float64, avg float64, distsRef []float64,
 ) ([]Diff, error) {
 	expectedBytes := uint64(8 * (len(dists) + len(distsRef)))
-	defer ProfilerEnd(ProfilerBeginWithBandwidth(ProfCompareReferenceFile, expectedBytes))
+	defer profiler.End(profiler.BeginWithBandwidth(profiler.KindCompareReferenceFile, expectedBytes))
 	if N0, N1 := len(dists), len(distsRef); N0 != N1 {
 		return nil, fmt.Errorf("different length to comparison file: %d != %d", N0, N1)
 	}
@@ -112,7 +113,7 @@ type Diff struct {
 
 func Distances(pp []Pair) ([]float64, float64) {
 	expectedBytes := uint64(len(pp)) * uint64(unsafe.Sizeof(pp[0]))
-	defer ProfilerEnd(ProfilerBeginWithBandwidth(ProfCalculateDistances, expectedBytes))
+	defer profiler.End(profiler.BeginWithBandwidth(profiler.KindCalculateDistances, expectedBytes))
 	dists := make([]float64, len(pp))
 	N := float64(len(pp))
 	var avg float64
@@ -139,7 +140,7 @@ type Pair struct {
 }
 
 func ParsePairs(buf []byte) ([]Pair, error) {
-	defer ProfilerEnd(ProfilerBegin(ProfParsePairs))
+	defer profiler.End(profiler.Begin(profiler.KindParsePairs))
 	p := PairsParser{buf: buf}
 	return p.Parse()
 }
@@ -167,7 +168,7 @@ func (p *PairsParser) Parse() ([]Pair, error) {
 }
 
 func (p *PairsParser) ParsePair() Pair {
-	defer ProfilerEnd(ProfilerBegin(ProfParsePair))
+	defer profiler.End(profiler.Begin(profiler.KindParsePair))
 	var pair Pair
 	if p.err != nil {
 		return pair
@@ -215,7 +216,7 @@ func (p *PairsParser) Ident() []byte {
 }
 
 func (p *PairsParser) Number() float64 {
-	defer ProfilerEnd(ProfilerBegin(ProfParseNumber))
+	defer profiler.End(profiler.Begin(profiler.KindParseNumber))
 	start := p.pos
 	for p.pos < len(p.buf) && IsNumChar(p.buf[p.pos]) {
 		p.pos++
@@ -309,7 +310,7 @@ var (
 )
 
 func ParseFloat(s []byte) (float64, error) {
-	defer ProfilerEnd(ProfilerBegin(ProfParseFloat))
+	defer profiler.End(profiler.Begin(profiler.KindParseFloat))
 	if len(s) == 0 {
 		return 0, ErrParseFloatEmpty
 	}
@@ -368,7 +369,7 @@ func ReadReferenceFile(refFile string) ([]float64, error) {
 		return nil, err
 	}
 	size := uint64(stat.Size())
-	defer ProfilerEnd(ProfilerBeginWithBandwidth(ProfReadReferenceFile, size))
+	defer profiler.End(profiler.BeginWithBandwidth(profiler.KindReadReferenceFile, size))
 	f, err := os.Open(refFile)
 	if err != nil {
 		return nil, err
