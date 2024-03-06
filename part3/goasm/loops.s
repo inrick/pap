@@ -4,8 +4,9 @@
 
 // func Read_4x2_go(repeatCount uint64, bb []byte)
 TEXT ·Read_4x2_go(SB), NOSPLIT, $0-32
-	MOVQ repeatCount+0(FP), AX
-	MOVQ bb_base+8(FP), CX
+	MOVQ    repeatCount+0(FP), AX
+	MOVQ    bb_base+8(FP), CX
+	PCALIGN $0x40
 
 loop:
 	MOVL (CX), BX
@@ -17,8 +18,9 @@ loop:
 
 // func Read_8x2_go(repeatCount uint64, bb []byte)
 TEXT ·Read_8x2_go(SB), NOSPLIT, $0-32
-	MOVQ repeatCount+0(FP), AX
-	MOVQ bb_base+8(FP), CX
+	MOVQ    repeatCount+0(FP), AX
+	MOVQ    bb_base+8(FP), CX
+	PCALIGN $0x40
 
 loop:
 	MOVQ (CX), BX
@@ -31,8 +33,9 @@ loop:
 // func Read_16x2_go(repeatCount uint64, bb []byte)
 // Requires: AVX
 TEXT ·Read_16x2_go(SB), NOSPLIT, $0-32
-	MOVQ repeatCount+0(FP), AX
-	MOVQ bb_base+8(FP), CX
+	MOVQ    repeatCount+0(FP), AX
+	MOVQ    bb_base+8(FP), CX
+	PCALIGN $0x40
 
 loop:
 	VMOVDQU (CX), X0
@@ -45,8 +48,9 @@ loop:
 // func Read_32x2_go(repeatCount uint64, bb []byte)
 // Requires: AVX
 TEXT ·Read_32x2_go(SB), NOSPLIT, $0-32
-	MOVQ repeatCount+0(FP), AX
-	MOVQ bb_base+8(FP), CX
+	MOVQ    repeatCount+0(FP), AX
+	MOVQ    bb_base+8(FP), CX
+	PCALIGN $0x40
 
 loop:
 	VMOVDQU (CX), Y0
@@ -59,11 +63,12 @@ loop:
 // func ReadSuccessiveSizes_go(repeatCount uint64, bb []byte, offsetMask uint64)
 // Requires: AVX
 TEXT ·ReadSuccessiveSizes_go(SB), NOSPLIT, $0-40
-	MOVQ repeatCount+0(FP), AX
-	MOVQ bb_base+8(FP), CX
-	MOVQ offsetMask+32(FP), DX
-	XORQ DI, DI
-	XORQ BX, BX
+	MOVQ    repeatCount+0(FP), AX
+	MOVQ    bb_base+8(FP), CX
+	MOVQ    offsetMask+32(FP), DX
+	XORQ    DI, DI
+	XORQ    BX, BX
+	PCALIGN $0x40
 
 loop:
 	MOVQ    CX, SI
@@ -76,15 +81,7 @@ loop:
 	VMOVDQU 160(SI), Y0
 	VMOVDQU 192(SI), Y0
 	VMOVDQU 224(SI), Y0
-	VMOVDQU 256(SI), Y0
-	VMOVDQU 288(SI), Y0
-	VMOVDQU 320(SI), Y0
-	VMOVDQU 352(SI), Y0
-	VMOVDQU 384(SI), Y0
-	VMOVDQU 416(SI), Y0
-	VMOVDQU 448(SI), Y0
-	VMOVDQU 480(SI), Y0
-	ADDQ    $0x00000200, DI
+	ADDQ    $0x00000100, DI
 	MOVQ    DI, BX
 	ANDQ    DX, BX
 	CMPQ    DI, AX

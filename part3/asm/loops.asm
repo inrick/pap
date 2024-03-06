@@ -224,15 +224,7 @@ ReadSuccessiveSizes:
   vmovdqu ymm0, [r9 + 160]
   vmovdqu ymm0, [r9 + 192]
   vmovdqu ymm0, [r9 + 224]
-  vmovdqu ymm0, [r9 + 256]
-  vmovdqu ymm0, [r9 + 288]
-  vmovdqu ymm0, [r9 + 320]
-  vmovdqu ymm0, [r9 + 352]
-  vmovdqu ymm0, [r9 + 384]
-  vmovdqu ymm0, [r9 + 416]
-  vmovdqu ymm0, [r9 + 448]
-  vmovdqu ymm0, [r9 + 480]
-  add rax, 512
+  add rax, 256
   mov r8, rax
   and r8, rdx
   cmp rax, rdi

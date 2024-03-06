@@ -4,6 +4,7 @@ package main
 
 import (
 	. "github.com/mmcloughlin/avo/build"
+	"github.com/mmcloughlin/avo/ir"
 	. "github.com/mmcloughlin/avo/operand"
 	. "github.com/mmcloughlin/avo/reg"
 )
@@ -19,6 +20,15 @@ func main() {
 	Generate()
 }
 
+// Avo currently does not implement the PCALIGN pseudo instruction but we can
+// emit it literally like this.
+func pcAlign(align uint8) {
+	Instruction(&ir.Instruction{
+		Opcode:   "PCALIGN",
+		Operands: []Op{U8(align)},
+	})
+}
+
 func gen4x2() {
 	TEXT("Read_4x2_go", NOSPLIT, "func(repeatCount uint64, bb []byte)")
 
@@ -26,6 +36,7 @@ func gen4x2() {
 	ptr := Load(Param("bb").Base(), GP64())
 	rep := GP64()
 	target := GP32()
+	pcAlign(64)
 
 	Label("loop")
 	MOVL(Mem{Base: ptr}, target)
@@ -44,6 +55,7 @@ func gen4x2_alt() {
 	repeatCount := Load(Param("repeatCount"), RDI)
 	ptr := Load(Param("bb").Base(), RSI)
 	XORQ(RAX, RAX)
+	pcAlign(64)
 
 	Label("loop")
 	MOVL(Mem{Base: ptr}, R8L)
@@ -62,6 +74,7 @@ func gen8x2() {
 	ptr := Load(Param("bb").Base(), GP64())
 	rep := GP64()
 	target := GP64()
+	pcAlign(64)
 
 	Label("loop")
 	MOVQ(Mem{Base: ptr}, target)
@@ -79,6 +92,7 @@ func gen16x2() {
 	repeatCount := Load(Param("repeatCount"), GP64())
 	ptr := Load(Param("bb").Base(), GP64())
 	rep := GP64()
+	pcAlign(64)
 
 	Label("loop")
 	VMOVDQU(Mem{Base: ptr}, X0)
@@ -96,6 +110,7 @@ func gen32x2() {
 	repeatCount := Load(Param("repeatCount"), GP64())
 	ptr := Load(Param("bb").Base(), GP64())
 	rep := GP64()
+	pcAlign(64)
 
 	Label("loop")
 	VMOVDQU(Mem{Base: ptr}, Y0)
@@ -122,11 +137,12 @@ func genCacheFinder() {
 	count := GP64()
 	XORQ(count, count)
 	XORQ(offset, offset)
+	pcAlign(64)
 
 	Label("loop")
 	MOVQ(ptr, offsetPtr)
 	ADDQ(offset, offsetPtr)
-	const unroll = 16
+	const unroll = 8
 	for i := 0; i < unroll; i++ {
 		VMOVDQU(Mem{Base: offsetPtr, Disp: 32 * i}, Y0)
 	}
@@ -151,15 +167,16 @@ func genCacheFinder_alt() {
 	mask := Load(Param("offsetMask"), RDX)
 	XORQ(RAX, RAX)
 	XORQ(R8, R8)
+	pcAlign(64)
 
 	Label("loop")
 	MOVQ(ptr, R9)
 	ADDQ(R8, R9)
-	VMOVDQU(Mem{Base: R9}, Y0)
-	VMOVDQU(Mem{Base: R9, Disp: 32}, Y0)
-	VMOVDQU(Mem{Base: R9, Disp: 64}, Y0)
-	VMOVDQU(Mem{Base: R9, Disp: 96}, Y0)
-	ADDQ(Imm(128), RAX)
+	const unroll = 8
+	for i := 0; i < unroll; i++ {
+		VMOVDQU(Mem{Base: R9, Disp: 32 * i}, Y0)
+	}
+	ADDQ(U32(unroll*32), RAX)
 	MOVQ(RAX, R8)
 	ANDQ(mask, R8)
 	CMPQ(RAX, repeatCount)
