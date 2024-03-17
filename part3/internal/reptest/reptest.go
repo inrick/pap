@@ -37,6 +37,15 @@ type TestResults struct {
 	maxTime   uint64
 }
 
+type FinalTestResults struct {
+	MinTime   uint64
+	MaxTime   uint64
+	TotalTime uint64
+	TestCount uint64
+	TimerFreq uint64
+	ByteCount uint64
+}
+
 func (rt *Tester) NewTestWave(targetBytes, timerFreq, secondsToTry uint64) {
 	if rt.state == TestModeUninitialized {
 		rt.state = TestModeTesting
@@ -77,6 +86,20 @@ func (rt *Tester) CountBytes(n uint64) { rt.bytesAcc += n }
 func (rt *Tester) Error(err error) {
 	fmt.Printf("ERROR: %v", err)
 	rt.state = TestModeError
+}
+
+func (rt *Tester) FinalTestResults() FinalTestResults {
+	if rt.state != TestModeCompleted {
+		panic("cannot get final test results while test is not finished")
+	}
+	return FinalTestResults{
+		MinTime:   rt.results.minTime,
+		MaxTime:   rt.results.maxTime,
+		TotalTime: rt.results.totalTime,
+		TestCount: rt.results.testCount,
+		TimerFreq: rt.timerFreq,
+		ByteCount: rt.targetBytes,
+	}
 }
 
 func (rt *Tester) IsTesting() bool {
