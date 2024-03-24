@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"part3/goasm"
 	"part3/internal"
 	"part3/internal/reptest"
+	"path/filepath"
 )
 
 type Params struct {
@@ -27,6 +29,9 @@ type TestFnSpec struct {
 var TestFunctions []TestFnSpec
 
 func main() {
+	flagOutput := flag.String("o", "", "output file")
+	flag.Parse()
+
 	const bufsz = 1 << 30
 	params := Params{count: bufsz, buf: make([]byte, bufsz)}
 	for i := range params.buf {
@@ -70,11 +75,33 @@ func main() {
 		results = append(results, res)
 	}
 
-	// Print CSV friendly output
-	fmt.Println()
-	fmt.Println("--- Summary ---")
-	fmt.Println()
-	printCsvResults(os.Stdout, results)
+	var w io.Writer
+	switch *flagOutput {
+	case "", "-":
+		w = os.Stdout
+		fmt.Println()
+		fmt.Println("--- Summary ---")
+		fmt.Println()
+	default:
+		dir := filepath.Dir(*flagOutput)
+		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+			fmt.Printf("Could not create directory: %v\n", err)
+		}
+		f, err := os.Create(*flagOutput)
+		if err != nil {
+			fmt.Printf("Could not create output file: %v\n", err)
+			fmt.Println("Writing to stdout instead.")
+			fmt.Println()
+			w = os.Stdout
+		} else {
+			defer f.Close()
+			fmt.Println()
+			fmt.Printf("Printing results to %s\n", *flagOutput)
+			w = f
+		}
+	}
+
+	printCsvResults(w, results)
 }
 
 func printCsvResults(w io.Writer, results []reptest.FinalTestResults) {
