@@ -18,9 +18,10 @@ type Params struct {
 type TestFn func(*reptest.Tester, Params) reptest.FinalTestResults
 
 type TestFnSpec struct {
-	Name  string
-	Label string
-	Func  TestFn
+	Name      string
+	ChunkSize uint64
+	Label     string
+	Func      TestFn
 }
 
 var TestFunctions []TestFnSpec
@@ -38,9 +39,10 @@ func main() {
 	for n := uint64(startBytes); n <= stopBytes; n <<= 1 {
 		strBytes := readableBytes(n)
 		testFn := TestFnSpec{
-			Name:  fmt.Sprintf("ReadSuccessiveSizes_go_%s", strBytes),
-			Label: strBytes,
-			Func:  mk(goasm.ReadSuccessiveSizes_go, n-1),
+			Name:      fmt.Sprintf("ReadSuccessiveSizes_go_%s", strBytes),
+			ChunkSize: n,
+			Label:     strBytes,
+			Func:      mk(goasm.ReadSuccessiveSizes_go, n-1),
 		}
 		TestFunctions = append(TestFunctions, testFn)
 	}
@@ -48,9 +50,10 @@ func main() {
 	for n := uint64(startBytes); n <= stopBytes; n <<= 1 {
 		strBytes := readableBytes(n)
 		testFn := TestFnSpec{
-			Name:  fmt.Sprintf("ReadSuccessiveSizes_%s", strBytes),
-			Label: strBytes,
-			Func:  mk(asm.ReadSuccessiveSizes, n-1),
+			Name:      fmt.Sprintf("ReadSuccessiveSizes_%s", strBytes),
+			ChunkSize: n,
+			Label:     strBytes,
+			Func:      mk(asm.ReadSuccessiveSizes, n-1),
 		}
 		TestFunctions = append(TestFunctions, testFn)
 	}
@@ -75,7 +78,7 @@ func main() {
 }
 
 func printCsvResults(w io.Writer, results []reptest.FinalTestResults) {
-	fmt.Fprintln(w, "Function,Label,Min GB/s,Max GB/s,Avg GB/s")
+	fmt.Fprintln(w, "Function,Chunk size,Label,Max GB/s,Min GB/s,Avg GB/s")
 	for i, res := range results {
 		bandwidth := func(t uint64) float64 {
 			tf := float64(t)
@@ -86,8 +89,9 @@ func printCsvResults(w io.Writer, results []reptest.FinalTestResults) {
 		avgTime := res.TotalTime / res.TestCount
 		fmt.Fprintf(
 			w,
-			"%s,%s,%f,%f,%f\n",
+			"%s,%d,%s,%f,%f,%f\n",
 			TestFunctions[i].Name,
+			TestFunctions[i].ChunkSize,
 			TestFunctions[i].Label,
 			bandwidth(res.MinTime),
 			bandwidth(res.MaxTime),
