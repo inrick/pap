@@ -87,3 +87,34 @@ loop:
 	CMPQ    DI, AX
 	JB      loop
 	RET
+
+// func ReadSuccessiveSizesNonPow2_go(repeatCount uint64, bb []byte, chunkSize uint64)
+// Requires: AVX
+TEXT ·ReadSuccessiveSizesNonPow2_go(SB), NOSPLIT, $0-40
+	MOVQ    repeatCount+0(FP), AX
+	MOVQ    bb_base+8(FP), CX
+	MOVQ    chunkSize+32(FP), DX
+	XORQ    DI, DI
+	PCALIGN $0x40
+
+loop:
+	XORQ SI, SI
+
+inner:
+	MOVQ    CX, BX
+	ADDQ    SI, BX
+	VMOVDQU (BX), Y0
+	VMOVDQU 32(BX), Y0
+	VMOVDQU 64(BX), Y0
+	VMOVDQU 96(BX), Y0
+	VMOVDQU 128(BX), Y0
+	VMOVDQU 160(BX), Y0
+	VMOVDQU 192(BX), Y0
+	VMOVDQU 224(BX), Y0
+	ADDQ    $0x00000100, SI
+	CMPQ    SI, DX
+	JB      inner
+	ADDQ    SI, DI
+	CMPQ    DI, AX
+	JB      loop
+	RET

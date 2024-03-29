@@ -1,5 +1,7 @@
-.PHONY: cachetest simdreadtest rwporttest optest readtest generate asm bench test clean
-all: cachetest
+.PHONY: cachetestnonpow2 cachetest simdreadtest rwporttest optest readtest generate asm bench test clean
+all: cachetestnonpow2
+cachetestnonpow2: asm generate
+	@go run ./cmd/cachetestnonpow2
 cachetest: asm generate
 	@go run ./cmd/cachetest
 simdreadtest: asm generate

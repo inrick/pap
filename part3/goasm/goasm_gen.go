@@ -16,6 +16,7 @@ func main() {
 	gen16x2()
 	gen32x2()
 	genCacheFinder()
+	genCacheFinderNonPow2()
 	//genCacheFinder_alt()
 	Generate()
 }
@@ -180,6 +181,47 @@ func genCacheFinder_alt() {
 	MOVQ(RAX, R8)
 	ANDQ(mask, R8)
 	CMPQ(RAX, repeatCount)
+	JB(LabelRef("loop"))
+
+	RET()
+}
+
+func genCacheFinderNonPow2() {
+	TEXT(
+		"ReadSuccessiveSizesNonPow2_go",
+		NOSPLIT,
+		"func(repeatCount uint64, bb []byte, chunkSize uint64)",
+	)
+
+	repeatCount := Load(Param("repeatCount"), GP64())
+	basePtr := Load(Param("bb").Base(), GP64())
+	chunkSize := Load(Param("chunkSize"), GP64())
+
+	loopPtr := GP64()    // Current pointer in inner loop
+	loopOffset := GP64() // Current offset in inner loop
+	totalCount := GP64() // Total count processed
+
+	XORQ(totalCount, totalCount)
+
+	pcAlign(64)
+
+	Label("loop")
+	XORQ(loopOffset, loopOffset)
+
+	Label("inner")
+	MOVQ(basePtr, loopPtr)
+	ADDQ(loopOffset, loopPtr)
+	const unroll = 8
+	for i := 0; i < unroll; i++ {
+		VMOVDQU(Mem{Base: loopPtr, Disp: 32 * i}, Y0)
+	}
+
+	ADDQ(U32(unroll*32), loopOffset)
+	CMPQ(loopOffset, chunkSize)
+	JB(LabelRef("inner"))
+
+	ADDQ(loopOffset, totalCount)
+	CMPQ(totalCount, repeatCount)
 	JB(LabelRef("loop"))
 
 	RET()

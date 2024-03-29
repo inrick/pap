@@ -26,6 +26,7 @@ global Read_8x2
 global Read_16x2
 global Read_32x2
 global ReadSuccessiveSizes
+global ReadSuccessiveSizesNonPow2
 
 section .text
 
@@ -229,4 +230,38 @@ ReadSuccessiveSizes:
   and r8, rdx
   cmp rax, rdi
   jb .loop
+  ret
+
+ReadSuccessiveSizesNonPow2:
+  ; Input arguments:
+  ;
+  ; rdi: total bytes to process
+  ; rsi: buffer pointer
+  ; rdx: chunk size
+
+  xor rax, rax
+
+  align 64
+.loop:
+  xor r8, r8
+
+.inner:
+  mov r9, rsi
+  add r9, r8
+  vmovdqu ymm0, [r9]
+  vmovdqu ymm0, [r9 + 32]
+  vmovdqu ymm0, [r9 + 64]
+  vmovdqu ymm0, [r9 + 96]
+  vmovdqu ymm0, [r9 + 128]
+  vmovdqu ymm0, [r9 + 160]
+  vmovdqu ymm0, [r9 + 192]
+  vmovdqu ymm0, [r9 + 224]
+  add r8, 256
+  cmp r8, rdx
+  jb .inner
+
+  add rax, r8
+  cmp rax, rdi
+  jb .loop
+
   ret

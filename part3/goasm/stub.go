@@ -11,3 +11,5 @@ func Read_16x2_go(repeatCount uint64, bb []byte)
 func Read_32x2_go(repeatCount uint64, bb []byte)
 
 func ReadSuccessiveSizes_go(repeatCount uint64, bb []byte, offsetMask uint64)
+
+func ReadSuccessiveSizesNonPow2_go(repeatCount uint64, bb []byte, chunkSize uint64)

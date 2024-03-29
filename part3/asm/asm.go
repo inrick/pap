@@ -21,6 +21,7 @@ package asm
 // extern void Read_16x2(uint64_t count, uint8_t *data);
 // extern void Read_32x2(uint64_t count, uint8_t *data);
 // extern void ReadSuccessiveSizes(uint64_t count, uint8_t *data, uint64_t mask);
+// extern void ReadSuccessiveSizesNonPow2(uint64_t count, uint8_t *data, uint64_t chunk_size);
 import "C"
 import "unsafe"
 
@@ -98,4 +99,8 @@ func Read_32x2(repeatCount uint64, bb []byte) {
 
 func ReadSuccessiveSizes(repeatCount uint64, bb []byte, mask uint64) {
 	C.ReadSuccessiveSizes(C.uint64_t(repeatCount), (*C.uint8_t)(unsafe.SliceData(bb)), C.uint64_t(mask))
+}
+
+func ReadSuccessiveSizesNonPow2(repeatCount uint64, bb []byte, chunkSize uint64) {
+	C.ReadSuccessiveSizesNonPow2(C.uint64_t(repeatCount), (*C.uint8_t)(unsafe.SliceData(bb)), C.uint64_t(chunkSize))
 }
