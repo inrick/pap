@@ -5,9 +5,9 @@ import numpy as np
 import pandas as pd
 
 
-CURRENT_DIR = Path(__file__).resolve().parent
-DATA_DIR = CURRENT_DIR / "data"
-PLOT_DIR = CURRENT_DIR / "plots"
+BASE_DIR = Path(__file__).resolve().parent.parent
+RESULTS_DIR = BASE_DIR / "data" / "results"
+PLOT_DIR = BASE_DIR / "data" / "plots"
 
 
 def plot_file(filepath: Path):
@@ -43,6 +43,6 @@ def plot_file(filepath: Path):
 
 
 if __name__ == "__main__":
-    for f in DATA_DIR.iterdir():
+    for f in RESULTS_DIR.iterdir():
         if f.suffix == ".csv":
             plot_file(f)
