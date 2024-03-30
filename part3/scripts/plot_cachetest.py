@@ -15,6 +15,10 @@ def plot_file(filepath: Path):
     labels = df["Label"].unique()
 
     fig, ax = plt.subplots()
+    figwidth = 8
+    if len(labels) > 0:
+        figwidth = 0.4 * len(df[df["Label"] == labels[0]])
+    fig.set_size_inches(figwidth, 5)
     fig.tight_layout(pad=5)
     size_labels = None
 
