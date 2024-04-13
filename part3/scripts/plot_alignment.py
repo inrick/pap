@@ -23,8 +23,8 @@ def plot_file(filepath: Path):
     size_labels = None
 
     for lbl in labels:
-        df2 = df[["Label", "Size label", "Chunk size", "Max GB/s"]][df["Label"] == lbl]
-        size_labels = df2["Size label"].values
+        df2 = df[["Label", "Offset label", "Offset size", "Max GB/s"]][df["Label"] == lbl]
+        size_labels = df2["Offset label"].values
         max_bandwidth = df2["Max GB/s"].values
         ax.plot(max_bandwidth, label=lbl)
 
@@ -32,7 +32,7 @@ def plot_file(filepath: Path):
         ax.grid(visible=True, linestyle="--", axis="both")
         ax.set_xticks(np.arange(len(size_labels)), size_labels, rotation=45, ha="center")
         ax.legend()
-        ax.set_xlabel("Chunk size")
+        ax.set_xlabel("Offset size")
         ax.set_ylabel("GB/s")
         ax.set_ylim(0)
 
@@ -44,5 +44,5 @@ def plot_file(filepath: Path):
 
 if __name__ == "__main__":
     for f in RESULTS_DIR.iterdir():
-        if f.name.startswith("cachetest") and f.suffix == ".csv":
+        if f.name.startswith("alignment") and f.suffix == ".csv":
             plot_file(f)
