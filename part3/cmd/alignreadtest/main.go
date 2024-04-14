@@ -52,7 +52,8 @@ func main() {
 	}
 
 	const bufsz = 1 << 30
-	params := Params{count: bufsz, buf: make([]byte, bufsz)}
+	// Make actual buffer slightly bigger so that we can read outside of it.
+	params := Params{count: bufsz, buf: make([]byte, bufsz+1<<20)}
 	for i := range params.buf {
 		params.buf[i] = byte(i)
 	}
