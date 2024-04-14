@@ -23,6 +23,8 @@ type TestFn func(*reptest.Tester, Params) reptest.FinalTestResults
 type TestFnSpec struct {
 	Name        string
 	Label       string
+	ChunkSize   uint64
+	ChunkLabel  string
 	OffsetSize  uint64
 	OffsetLabel string
 	Func        TestFn
@@ -32,7 +34,22 @@ var TestFunctions []TestFnSpec
 
 func main() {
 	flagOutput := flag.String("o", "", "output file")
+	flagCode := flag.String("source", "go", "source function to use (go/nasm/both)")
 	flag.Parse()
+
+	var useGoAsm, useNasm bool
+	switch *flagCode {
+	case "go":
+		useGoAsm = true
+	case "nasm":
+		useNasm = true
+	case "both":
+		useGoAsm = true
+		useNasm = true
+	default:
+		fmt.Printf("Unknown option %q: valid alternatives are go/nasm/both\n", *flagCode)
+		os.Exit(1)
+	}
 
 	const bufsz = 1 << 30
 	params := Params{count: bufsz, buf: make([]byte, bufsz)}
@@ -41,30 +58,48 @@ func main() {
 	}
 
 	// Populate TestFunctions
-	const startBytes, stopBytes = 0, 128
+	chunkSizes := []uint64{8 << 10, 128 << 10, 2 << 20, bufsz}
+	alignments := []uint64{0, 1, 2, 15, 16, 17, 31, 32, 33, 47, 48, 49, 63, 64, 65}
 
-	// Written in Go assembly
-	for n := uint64(0); n <= stopBytes; n++ {
-		testFn := TestFnSpec{
-			Name:        "ReadSuccessiveSizesNonPow2_go",
-			Label:       "go",
-			OffsetSize:  n,
-			OffsetLabel: readableBytes(n),
-			Func:        mk(goasm.ReadSuccessiveSizesNonPow2_go, n),
-		}
-		TestFunctions = append(TestFunctions, testFn)
+	sourceFns := []struct {
+		fn    func(uint64, []byte, uint64)
+		name  string
+		label string
+		use   bool
+	}{
+		{
+			// Written in Go assembly
+			goasm.ReadSuccessiveSizesNonPow2_go,
+			"ReadSuccessiveSizesNonPow2_go",
+			"go",
+			useGoAsm,
+		},
+		{
+			// Compiled with nasm
+			asm.ReadSuccessiveSizesNonPow2,
+			"ReadSuccessiveSizesNonPow2",
+			"nasm",
+			useNasm,
+		},
 	}
 
-	// Compiled with nasm
-	for n := uint64(0); n <= stopBytes; n++ {
-		testFn := TestFnSpec{
-			Name:        "ReadSuccessiveSizesNonPow2",
-			Label:       "nasm",
-			OffsetSize:  n,
-			OffsetLabel: readableBytes(n),
-			Func:        mk(asm.ReadSuccessiveSizesNonPow2, n),
+	for _, source := range sourceFns {
+		if source.use {
+			for _, chunksz := range chunkSizes {
+				for _, n := range alignments {
+					testFn := TestFnSpec{
+						Name:        source.name,
+						Label:       source.label,
+						ChunkSize:   chunksz,
+						ChunkLabel:  readableBytes(chunksz),
+						OffsetSize:  n,
+						OffsetLabel: readableBytes(n),
+						Func:        mk(source.fn, chunksz, n),
+					}
+					TestFunctions = append(TestFunctions, testFn)
+				}
+			}
 		}
-		TestFunctions = append(TestFunctions, testFn)
 	}
 
 	testers := make([]reptest.Tester, len(TestFunctions))
@@ -73,7 +108,7 @@ func main() {
 	var results []reptest.FinalTestResults
 	for i, testFn := range TestFunctions {
 		rt := &testers[i]
-		fmt.Printf("\n--- %s %s ---\n", testFn.Name, testFn.OffsetLabel)
+		fmt.Printf("\n--- %s (%s, %s) ---\n", testFn.Name, testFn.ChunkLabel, testFn.OffsetLabel)
 		rt.NewTestWave(bufsz, freqReport.EstFreq, 10)
 		res := testFn.Func(rt, params)
 		results = append(results, res)
@@ -109,7 +144,7 @@ func main() {
 }
 
 func printCsvResults(w io.Writer, results []reptest.FinalTestResults) {
-	fmt.Fprintln(w, "Function,Label,Offset label,Offset size,Max GB/s,Min GB/s,Avg GB/s")
+	fmt.Fprintln(w, "Function,Label,Chunk label,Chunk size,Offset label,Offset size,Max GB/s,Min GB/s,Avg GB/s")
 	for i, res := range results {
 		bandwidth := func(t uint64) float64 {
 			tf := float64(t)
@@ -120,9 +155,11 @@ func printCsvResults(w io.Writer, results []reptest.FinalTestResults) {
 		avgTime := res.TotalTime / res.TestCount
 		fmt.Fprintf(
 			w,
-			"%s,%s,%s,%d,%f,%f,%f\n",
+			"%s,%s,%s,%d,%s,%d,%f,%f,%f\n",
 			TestFunctions[i].Name,
 			TestFunctions[i].Label,
+			TestFunctions[i].ChunkLabel,
+			TestFunctions[i].ChunkSize,
 			TestFunctions[i].OffsetLabel,
 			TestFunctions[i].OffsetSize,
 			bandwidth(res.MinTime),
@@ -132,11 +169,11 @@ func printCsvResults(w io.Writer, results []reptest.FinalTestResults) {
 	}
 }
 
-func mk(fn func(uint64, []byte, uint64), offset uint64) TestFn {
+func mk(fn func(uint64, []byte, uint64), chunksz, offset uint64) TestFn {
 	return func(rt *reptest.Tester, p Params) reptest.FinalTestResults {
 		for rt.IsTesting() {
 			rt.BeginTime()
-			fn(p.count, p.buf[offset:], 32<<10)
+			fn(p.count, p.buf[offset:], chunksz)
 			rt.EndTime()
 			rt.CountBytes(p.count)
 		}
