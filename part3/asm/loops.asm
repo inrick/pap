@@ -2,6 +2,7 @@
 ; rdi = 1st arg,
 ; rsi = 2nd arg,
 ; rdx = 3rd arg,
+; rcx = 4th arg,
 ; rax = 1st return register.
 ;
 ; Reference:
@@ -27,6 +28,7 @@ global Read_16x2
 global Read_32x2
 global ReadSuccessiveSizes
 global ReadSuccessiveSizesNonPow2
+global ReadStrided_32x2
 
 section .text
 
@@ -263,5 +265,32 @@ ReadSuccessiveSizesNonPow2:
   add rax, r8
   cmp rax, rdi
   jb .loop
+
+  ret
+
+ReadStrided_32x2:
+  ; Input arguments:
+  ;
+  ; rdi: total bytes to process
+  ; rsi: buffer pointer
+  ; rdx: chunk size
+  ; rcx: stride
+
+  xor rax, rax
+
+  align 64
+.loop:
+  mov r8, rdx
+  mov r9, rsi
+
+.inner:
+  vmovdqu ymm0, [r9]
+  vmovdqu ymm0, [r9 + 32]
+  add r9, rcx
+  sub r8, 64
+  jnz .inner
+
+  sub rdi, rdx
+  jnz .loop
 
   ret

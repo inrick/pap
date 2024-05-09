@@ -1,6 +1,6 @@
 module part3
 
-go 1.21
+go 1.22
 
 require (
 	github.com/mmcloughlin/avo v0.6.0 // indirect

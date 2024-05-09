@@ -118,3 +118,26 @@ inner:
 	CMPQ    DI, AX
 	JB      loop
 	RET
+
+// func ReadStrided_32x2_go(repeatCount uint64, bb []byte, chunkSize uint64, stride uint64)
+// Requires: AVX
+TEXT ·ReadStrided_32x2_go(SB), NOSPLIT, $0-48
+	MOVQ    repeatCount+0(FP), AX
+	MOVQ    bb_base+8(FP), CX
+	MOVQ    chunkSize+32(FP), DX
+	MOVQ    stride+40(FP), BX
+	PCALIGN $0x40
+
+loop:
+	MOVQ DX, DI
+	MOVQ CX, SI
+
+inner:
+	VMOVDQU (SI), Y0
+	VMOVDQU 32(SI), Y0
+	ADDQ    BX, SI
+	SUBQ    $0x40, DI
+	JNZ     inner
+	SUBQ    DX, AX
+	JNZ     loop
+	RET

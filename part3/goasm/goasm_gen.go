@@ -18,6 +18,7 @@ func main() {
 	genCacheFinder()
 	genCacheFinderNonPow2()
 	//genCacheFinder_alt()
+	genCacheStrideRead()
 	Generate()
 }
 
@@ -223,6 +224,41 @@ func genCacheFinderNonPow2() {
 	ADDQ(loopOffset, totalCount)
 	CMPQ(totalCount, repeatCount)
 	JB(LabelRef("loop"))
+
+	RET()
+}
+
+func genCacheStrideRead() {
+	TEXT(
+		"ReadStrided_32x2_go",
+		NOSPLIT,
+		"func(repeatCount uint64, bb []byte, chunkSize uint64, stride uint64)",
+	)
+
+	repeatCount := Load(Param("repeatCount"), GP64())
+	basePtr := Load(Param("bb").Base(), GP64())
+	chunkSize := Load(Param("chunkSize"), GP64())
+	stride := Load(Param("stride"), GP64())
+
+	loopPtr := GP64() // Current pointer in inner loop
+	currentReadCount := GP64()
+
+	pcAlign(64)
+
+	Label("loop")
+	MOVQ(chunkSize, currentReadCount)
+	MOVQ(basePtr, loopPtr)
+
+	Label("inner")
+	VMOVDQU(Mem{Base: loopPtr, Disp: 0}, Y0)
+	VMOVDQU(Mem{Base: loopPtr, Disp: 32}, Y0)
+
+	ADDQ(stride, loopPtr)
+	SUBQ(Imm(64), currentReadCount)
+	JNZ(LabelRef("inner"))
+
+	SUBQ(chunkSize, repeatCount)
+	JNZ(LabelRef("loop"))
 
 	RET()
 }
