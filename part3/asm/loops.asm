@@ -29,6 +29,8 @@ global Read_32x2
 global ReadSuccessiveSizes
 global ReadSuccessiveSizesNonPow2
 global ReadStrided_32x2
+global WriteTemporal
+global WriteNonTemporal
 
 section .text
 
@@ -292,5 +294,105 @@ ReadStrided_32x2:
 
   sub rdi, rdx
   jnz .loop
+
+  ret
+
+WriteTemporal:
+  ; Input arguments:
+  ;
+  ; rdi: input buffer
+  ; rsi: output buffer
+  ; rdx: read size
+  ; rcx: inner read size
+
+  xor rax, rax
+
+  mov r8, rdi ; inner loop ptr
+
+  ; end of input buffer
+  mov r9, rdi
+  add r9, rcx
+
+  ; end of output buffer
+  mov r10, rsi
+  add r10, rdx
+
+  align 64
+.loop:
+  mov r8, rdi
+
+.inner:
+  vmovdqu ymm0, [r8]
+  vmovdqu [rsi], ymm0
+  vmovdqu ymm0, [r8 + 32]
+  vmovdqu [rsi + 32], ymm0
+  vmovdqu ymm0, [r8 + 64]
+  vmovdqu [rsi + 64], ymm0
+  vmovdqu ymm0, [r8 + 96]
+  vmovdqu [rsi + 96], ymm0
+  vmovdqu ymm0, [r8 + 128]
+  vmovdqu [rsi + 128], ymm0
+  vmovdqu ymm0, [r8 + 160]
+  vmovdqu [rsi + 160], ymm0
+  vmovdqu ymm0, [r8 + 192]
+  vmovdqu [rsi + 192], ymm0
+  vmovdqu ymm0, [r8 + 224]
+  vmovdqu [rsi + 224], ymm0
+  add r8, 256
+  add rsi, 256
+  jb .inner
+
+  cmp rsi, r10
+  jb .loop
+
+  ret
+
+WriteNonTemporal:
+  ; Input arguments:
+  ;
+  ; rdi: input buffer
+  ; rsi: output buffer
+  ; rdx: read size
+  ; rcx: inner read size
+
+  xor rax, rax
+
+  mov r8, rdi ; inner loop ptr
+
+  ; end of input buffer
+  mov r9, rdi
+  add r9, rcx
+
+  ; end of output buffer
+  mov r10, rsi
+  add r10, rdx
+
+  align 64
+.loop:
+  mov r8, rdi
+
+.inner:
+  vmovdqu ymm0, [r8]
+  vmovntdq [rsi], ymm0
+  vmovdqu ymm0, [r8 + 32]
+  vmovntdq [rsi + 32], ymm0
+  vmovdqu ymm0, [r8 + 64]
+  vmovntdq [rsi + 64], ymm0
+  vmovdqu ymm0, [r8 + 96]
+  vmovntdq [rsi + 96], ymm0
+  vmovdqu ymm0, [r8 + 128]
+  vmovntdq [rsi + 128], ymm0
+  vmovdqu ymm0, [r8 + 160]
+  vmovntdq [rsi + 160], ymm0
+  vmovdqu ymm0, [r8 + 192]
+  vmovntdq [rsi + 192], ymm0
+  vmovdqu ymm0, [r8 + 224]
+  vmovntdq [rsi + 224], ymm0
+  add r8, 256
+  add rsi, 256
+  jb .inner
+
+  cmp rsi, r10
+  jb .loop
 
   ret

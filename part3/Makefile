@@ -1,5 +1,7 @@
-.PHONY: cachestridetest alignreadtest cachetestnonpow2 cachetest simdreadtest rwporttest optest readtest generate asm bench test clean
-all: cachestridetest
+.PHONY: nontemporaltest cachestridetest alignreadtest cachetestnonpow2 cachetest simdreadtest rwporttest optest readtest generate asm bench test clean
+all: nontemporaltest
+nontemporaltest: asm generate
+	@go run ./cmd/nontemporaltest
 cachestridetest: asm generate
 	@go run ./cmd/cachestridetest
 alignreadtest: asm generate

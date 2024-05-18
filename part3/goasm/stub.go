@@ -15,3 +15,7 @@ func ReadSuccessiveSizes_go(repeatCount uint64, bb []byte, offsetMask uint64)
 func ReadSuccessiveSizesNonPow2_go(repeatCount uint64, bb []byte, chunkSize uint64)
 
 func ReadStrided_32x2_go(repeatCount uint64, bb []byte, chunkSize uint64, stride uint64)
+
+func WriteTemporal_go(input []byte, output []byte, readSize uint64, innerReadSize uint64)
+
+func WriteNonTemporal_go(input []byte, output []byte, readSize uint64, innerReadSize uint64)

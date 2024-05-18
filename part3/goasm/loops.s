@@ -141,3 +141,85 @@ inner:
 	SUBQ    DX, AX
 	JNZ     loop
 	RET
+
+// func WriteTemporal_go(input []byte, output []byte, readSize uint64, innerReadSize uint64)
+// Requires: AVX
+TEXT ·WriteTemporal_go(SB), NOSPLIT, $0-64
+	MOVQ    input_base+0(FP), AX
+	MOVQ    output_base+24(FP), CX
+	MOVQ    readSize+48(FP), DX
+	MOVQ    innerReadSize+56(FP), BX
+	MOVQ    AX, SI
+	ADDQ    BX, SI
+	MOVQ    CX, BX
+	ADDQ    DX, BX
+	PCALIGN $0x40
+
+loop:
+	MOVQ AX, DX
+
+inner:
+	VMOVDQU (DX), Y0
+	VMOVDQU Y0, (CX)
+	VMOVDQU 32(DX), Y0
+	VMOVDQU Y0, 32(CX)
+	VMOVDQU 64(DX), Y0
+	VMOVDQU Y0, 64(CX)
+	VMOVDQU 96(DX), Y0
+	VMOVDQU Y0, 96(CX)
+	VMOVDQU 128(DX), Y0
+	VMOVDQU Y0, 128(CX)
+	VMOVDQU 160(DX), Y0
+	VMOVDQU Y0, 160(CX)
+	VMOVDQU 192(DX), Y0
+	VMOVDQU Y0, 192(CX)
+	VMOVDQU 224(DX), Y0
+	VMOVDQU Y0, 224(CX)
+	ADDQ    $0x00000100, DX
+	ADDQ    $0x00000100, CX
+	CMPQ    DX, SI
+	JB      inner
+	CMPQ    CX, BX
+	JB      loop
+	RET
+
+// func WriteNonTemporal_go(input []byte, output []byte, readSize uint64, innerReadSize uint64)
+// Requires: AVX
+TEXT ·WriteNonTemporal_go(SB), NOSPLIT, $0-64
+	MOVQ    input_base+0(FP), AX
+	MOVQ    output_base+24(FP), CX
+	MOVQ    readSize+48(FP), DX
+	MOVQ    innerReadSize+56(FP), BX
+	MOVQ    AX, SI
+	ADDQ    BX, SI
+	MOVQ    CX, BX
+	ADDQ    DX, BX
+	PCALIGN $0x40
+
+loop:
+	MOVQ AX, DX
+
+inner:
+	VMOVDQU  (DX), Y0
+	VMOVNTDQ Y0, (CX)
+	VMOVDQU  32(DX), Y0
+	VMOVNTDQ Y0, 32(CX)
+	VMOVDQU  64(DX), Y0
+	VMOVNTDQ Y0, 64(CX)
+	VMOVDQU  96(DX), Y0
+	VMOVNTDQ Y0, 96(CX)
+	VMOVDQU  128(DX), Y0
+	VMOVNTDQ Y0, 128(CX)
+	VMOVDQU  160(DX), Y0
+	VMOVNTDQ Y0, 160(CX)
+	VMOVDQU  192(DX), Y0
+	VMOVNTDQ Y0, 192(CX)
+	VMOVDQU  224(DX), Y0
+	VMOVNTDQ Y0, 224(CX)
+	ADDQ     $0x00000100, DX
+	ADDQ     $0x00000100, CX
+	CMPQ     DX, SI
+	JB       inner
+	CMPQ     CX, BX
+	JB       loop
+	RET

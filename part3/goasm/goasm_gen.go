@@ -19,6 +19,8 @@ func main() {
 	genCacheFinderNonPow2()
 	//genCacheFinder_alt()
 	genCacheStrideRead()
+	genWriteTemporal()
+	genWriteNonTemporal()
 	Generate()
 }
 
@@ -259,6 +261,96 @@ func genCacheStrideRead() {
 
 	SUBQ(chunkSize, repeatCount)
 	JNZ(LabelRef("loop"))
+
+	RET()
+}
+
+func genWriteTemporal() {
+	TEXT(
+		"WriteTemporal_go",
+		NOSPLIT,
+		"func(input, output []byte, readSize, innerReadSize uint64)",
+	)
+
+	inPtr := Load(Param("input").Base(), GP64())
+	outPtr := Load(Param("output").Base(), GP64())
+	readSize := Load(Param("readSize"), GP64())
+	innerReadSize := Load(Param("innerReadSize"), GP64())
+
+	innerLoopPtr := GP64()
+
+	inPtrEnd := GP64()
+	MOVQ(inPtr, inPtrEnd)
+	ADDQ(innerReadSize, inPtrEnd)
+
+	outPtrEnd := GP64()
+	MOVQ(outPtr, outPtrEnd)
+	ADDQ(readSize, outPtrEnd)
+
+	pcAlign(64)
+
+	Label("loop")
+	MOVQ(inPtr, innerLoopPtr)
+
+	Label("inner")
+	const unroll = 8
+	for i := range unroll {
+		VMOVDQU(Mem{Base: innerLoopPtr, Disp: 32 * i}, Y0)
+		VMOVDQU(Y0, Mem{Base: outPtr, Disp: 32 * i})
+	}
+
+	ADDQ(U32(unroll*32), innerLoopPtr)
+	ADDQ(U32(unroll*32), outPtr)
+	CMPQ(innerLoopPtr, inPtrEnd)
+	JB(LabelRef("inner"))
+
+	CMPQ(outPtr, outPtrEnd)
+	JB(LabelRef("loop"))
+
+	RET()
+}
+
+func genWriteNonTemporal() {
+	TEXT(
+		"WriteNonTemporal_go",
+		NOSPLIT,
+		"func(input, output []byte, readSize, innerReadSize uint64)",
+	)
+
+	inPtr := Load(Param("input").Base(), GP64())
+	outPtr := Load(Param("output").Base(), GP64())
+	readSize := Load(Param("readSize"), GP64())
+	innerReadSize := Load(Param("innerReadSize"), GP64())
+
+	innerLoopPtr := GP64()
+
+	inPtrEnd := GP64()
+	MOVQ(inPtr, inPtrEnd)
+	ADDQ(innerReadSize, inPtrEnd)
+
+	outPtrEnd := GP64()
+	MOVQ(outPtr, outPtrEnd)
+	ADDQ(readSize, outPtrEnd)
+
+	pcAlign(64)
+
+	Label("loop")
+	MOVQ(inPtr, innerLoopPtr)
+
+	Label("inner")
+	const unroll = 8
+	for i := range unroll {
+		VMOVDQU(Mem{Base: innerLoopPtr, Disp: 32 * i}, Y0)
+		VMOVNTDQ(Y0, Mem{Base: outPtr, Disp: 32 * i})
+	}
+
+	ADDQ(U32(unroll*32), innerLoopPtr)
+	ADDQ(U32(unroll*32), outPtr)
+	CMPQ(innerLoopPtr, inPtrEnd)
+	JB(LabelRef("inner"))
+
+	CMPQ(outPtr, outPtrEnd)
+	JB(LabelRef("loop"))
 
 	RET()
 }

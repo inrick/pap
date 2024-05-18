@@ -23,6 +23,8 @@ package asm
 // extern void ReadSuccessiveSizes(uint64_t count, uint8_t *data, uint64_t mask);
 // extern void ReadSuccessiveSizesNonPow2(uint64_t count, uint8_t *data, uint64_t chunk_size);
 // extern void ReadStrided_32x2(uint64_t count, uint8_t *data, uint64_t chunk_size, uint64_t stride);
+// extern void WriteTemporal(uint8_t *input, uint8_t *output, uint64_t read_size, uint64_t inner_read_size);
+// extern void WriteNonTemporal(uint8_t *input, uint8_t *output, uint64_t read_size, uint64_t inner_read_size);
 import "C"
 import "unsafe"
 
@@ -108,4 +110,12 @@ func ReadSuccessiveSizesNonPow2(repeatCount uint64, bb []byte, chunkSize uint64)
 
 func ReadStrided_32x2(repeatCount uint64, bb []byte, chunkSize uint64, stride uint64) {
 	C.ReadStrided_32x2(C.uint64_t(repeatCount), (*C.uint8_t)(unsafe.SliceData(bb)), C.uint64_t(chunkSize), C.uint64_t(stride))
+}
+
+func WriteTemporal(input, output []byte, readSize, innerReadSize uint64) {
+	C.WriteTemporal((*C.uint8_t)(unsafe.SliceData(input)), (*C.uint8_t)(unsafe.SliceData(output)), C.uint64_t(readSize), C.uint64_t(innerReadSize))
+}
+
+func WriteNonTemporal(input, output []byte, readSize, innerReadSize uint64) {
+	C.WriteNonTemporal((*C.uint8_t)(unsafe.SliceData(input)), (*C.uint8_t)(unsafe.SliceData(output)), C.uint64_t(readSize), C.uint64_t(innerReadSize))
 }
