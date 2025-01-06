@@ -21,11 +21,39 @@ var (
 	ErrExpectedEof = errors.New("expected EOF")
 )
 
+// Store some statistics on function range
+type StatEntry struct{ InMin, InMax float64 }
+type Statistics struct{ Sin, Cos, Asin, Sqrt StatEntry }
+
+// Initialized in init()
+var stats Statistics
+
+func init() {
+	stats.Sin.InMin = math.Inf(1)
+	stats.Cos.InMin = math.Inf(1)
+	stats.Asin.InMin = math.Inf(1)
+	stats.Sqrt.InMin = math.Inf(1)
+	stats.Sin.InMax = math.Inf(-1)
+	stats.Cos.InMax = math.Inf(-1)
+	stats.Asin.InMax = math.Inf(-1)
+	stats.Sqrt.InMax = math.Inf(-1)
+}
+
 func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
 	}
 	profiler.PrintReport()
+	log.Println()
+	stats.PrintReport()
+}
+
+func (s Statistics) PrintReport() {
+	log.Println("Function statistics report, input min/max:")
+	log.Printf(" Sin: % 2.7f  | % 2.7f", s.Sin.InMin, s.Sin.InMax)
+	log.Printf(" Cos: % 2.7f  | % 2.7f", s.Cos.InMin, s.Cos.InMax)
+	log.Printf("Asin: % 2.7f  | % 2.7f", s.Asin.InMin, s.Asin.InMax)
+	log.Printf("Sqrt: % 2.7f  | % 2.7f", s.Sqrt.InMin, s.Sqrt.InMax)
 }
 
 func run() error {
@@ -350,6 +378,31 @@ func ParseFloat(s []byte) (float64, error) {
 	return n, err
 }
 
+// Wrappers around math functions that also record max/min of input.
+func Sin(x float64) float64 {
+	stats.Sin.InMin = min(x, stats.Sin.InMin)
+	stats.Sin.InMax = max(x, stats.Sin.InMax)
+	return math.Sin(x)
+}
+
+func Cos(x float64) float64 {
+	stats.Cos.InMin = min(x, stats.Cos.InMin)
+	stats.Cos.InMax = max(x, stats.Cos.InMax)
+	return math.Cos(x)
+}
+
+func Asin(x float64) float64 {
+	stats.Asin.InMin = min(x, stats.Asin.InMin)
+	stats.Asin.InMax = max(x, stats.Asin.InMax)
+	return math.Asin(x)
+}
+
+func Sqrt(x float64) float64 {
+	stats.Sqrt.InMin = min(x, stats.Sqrt.InMin)
+	stats.Sqrt.InMax = max(x, stats.Sqrt.InMax)
+	return math.Sqrt(x)
+}
+
 func Square(x float64) float64 { return x * x }
 
 func Haversine(p Pair) float64 {
@@ -358,8 +411,8 @@ func Haversine(p Pair) float64 {
 	dLon := Radians(p.X1 - p.X0)
 	lat0 := Radians(p.Y0)
 	lat1 := Radians(p.Y1)
-	a := Square(math.Sin(dLat/2)) + math.Cos(lat0)*math.Cos(lat1)*Square(math.Sin(dLon/2))
-	c := 2 * math.Asin(math.Sqrt(a))
+	a := Square(Sin(dLat/2)) + Cos(lat0)*Cos(lat1)*Square(Sin(dLon/2))
+	c := 2 * Asin(Sqrt(a))
 	return earthRadius * c
 }
 
