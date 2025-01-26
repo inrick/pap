@@ -110,7 +110,25 @@ var (
 	}
 )
 
+const (
+	pi = 3.1415926535897
+
+	mathAssert = true
+)
+
+// SinAlt approximates sin(x) for x \in [-pi, pi] by two parabolas.
 func SinAlt(x float64) float64 {
+	if mathAssert {
+		if x < -pi || x > pi {
+			panic(fmt.Errorf("invalid value for x for sin approximation: %.16f", x))
+		}
+	}
+	switch {
+	case x >= 0:
+		return -4 * x * (x - pi) / (pi * pi)
+	case x < 0:
+		return 4 * x * (x + pi) / (pi * pi)
+	}
 	return x
 }
 
