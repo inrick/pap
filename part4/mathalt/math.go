@@ -1,5 +1,7 @@
 package mathalt
 
+//go:generate go run ./math_gen.go -out math.s -stubs stubs.go
+
 import (
 	"log"
 	"math"

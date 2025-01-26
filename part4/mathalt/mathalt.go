@@ -122,10 +122,6 @@ func AsinAlt(x float64) float64 {
 	return x
 }
 
-func SqrtAlt(x float64) float64 {
-	return x
-}
-
 func TestFunctions() {
 	funcs := []struct {
 		name string
