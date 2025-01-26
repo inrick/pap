@@ -132,7 +132,19 @@ func SinAlt(x float64) float64 {
 	return x
 }
 
+// CosAlt approximates cos(x) for x \in [-pi/2, pi]
 func CosAlt(x float64) float64 {
+	if mathAssert {
+		if x < -pi/2-1e8 || x > pi {
+			panic(fmt.Errorf("invalid value for x for cos approximation: %.16f", x))
+		}
+	}
+	switch {
+	case x <= pi/2:
+		return -(2*x + pi) * (2*x - pi) / (pi * pi)
+	case x > pi/2:
+		return (2*x - pi) * (2*x - 3*pi) / (pi * pi)
+	}
 	return x
 }
 
