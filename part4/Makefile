@@ -1,5 +1,8 @@
-.PHONY: all gen hav havnoprof havrun havrunnoprof debuggen debughav bench test clean
-all: gen hav
+.PHONY: all mathtest full gen hav havnoprof havrun havrunnoprof debuggen debughav bench test clean
+all: mathtest
+mathtest:
+	@go run ./cmd/mathtest
+full: gen hav
 	@#"https://github.com/golang/go/wiki/MinimumRequirements#amd64"
 	@./generate -dir ./tmp cluster 1234 1000000
 	@./haversine ./tmp/output.json ./tmp/output.f64
