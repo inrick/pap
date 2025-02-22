@@ -137,7 +137,8 @@ type referenceEntry struct {
 }
 
 func PrintSep() {
-	fmt.Println("   =====================================")
+	// Marks out precision decimals in output.
+	fmt.Println("   ________________             ________________")
 }
 
 func (r *TestFnResult) AvgDiff() float64 {
@@ -149,7 +150,7 @@ func (r *TestFnResult) AvgDiff() float64 {
 
 func (r *TestFnResult) PrintResult() {
 	fmt.Printf(
-		"%+.16f (%+.16f) at %+.16f [%s]\n",
+		"%+.24f (%+.24f) at %+.24f [%s]\n",
 		r.MaxDiff, r.AvgDiff(), r.MaxDiffInputVal, r.Label,
 	)
 }
@@ -177,6 +178,7 @@ func (t *PrecisionTester) Step(minInput, maxInput float64, stepCount int) bool {
 		t.ResultCount += t.ResultOffset
 
 		if t.ProgressResultCount < t.ResultCount {
+			fmt.Println("   Largest                      Average")
 			PrintSep()
 			for t.ProgressResultCount < t.ResultCount {
 				t.Results[t.ProgressResultCount].PrintResult()
@@ -212,13 +214,12 @@ func (t *PrecisionTester) Test(expected, output float64, format string, args ...
 		res.MaxDiffExpect = expected
 	}
 
-	// This is reset back to 0 when we step the input tester. Not sure what the
-	// idea is here? Keeping for curiousity.
 	t.ResultOffset++
 }
 
 func (t *PrecisionTester) PrintResults() {
-	fmt.Println("Sorted results by maximum error:")
+	fmt.Printf("\nSorted results by maximum error:\n")
+	fmt.Println("   Largest                      Average")
 	PrintSep()
 
 	ranking := make([]int, len(t.Results))
@@ -245,7 +246,7 @@ func (t *PrecisionTester) PrintResults() {
 	for ri := 0; ri < len(ranking); ri++ {
 		res := t.Results[ranking[ri]]
 
-		fmt.Printf("%+.16f (%+.16f) [%s", res.MaxDiff, res.AvgDiff(), res.Label)
+		fmt.Printf("%+.24f (%+.24f) [%s", res.MaxDiff, res.AvgDiff(), res.Label)
 
 		// Continue to append equal results, if any.
 		for rj := ri + 1; rj < len(ranking); rj++ {
@@ -271,21 +272,17 @@ func TestFunctions() {
 		{"SinQ", SinQ, refSin, math.Sin, -pi, pi},
 		{"SinAlt", SinAlt, refSin, math.Sin, -pi, pi},
 		{"SinTaylor3", SinTaylorN(3), refSin, math.Sin, -pi, pi},
+		{"SinTaylor4", SinTaylorN(4), refSin, math.Sin, -pi, pi},
 		{"SinTaylor5", SinTaylorN(5), refSin, math.Sin, -pi, pi},
+		{"SinTaylor6", SinTaylorN(6), refSin, math.Sin, -pi, pi},
 		{"SinTaylor7", SinTaylorN(7), refSin, math.Sin, -pi, pi},
+		{"SinTaylor8", SinTaylorN(8), refSin, math.Sin, -pi, pi},
 		{"SinTaylor9", SinTaylorN(9), refSin, math.Sin, -pi, pi},
+		{"SinTaylor10", SinTaylorN(10), refSin, math.Sin, -pi, pi},
 		{"SinTaylor11", SinTaylorN(11), refSin, math.Sin, -pi, pi},
-		{"SinTaylor13", SinTaylorN(13), refSin, math.Sin, -pi, pi},
-		{"SinTaylor15", SinTaylorN(15), refSin, math.Sin, -pi, pi},
-		{"SinTaylor17", SinTaylorN(17), refSin, math.Sin, -pi, pi},
-		{"SinTaylor19", SinTaylorN(19), refSin, math.Sin, -pi, pi},
 		{"CosAlt", CosAlt, refCos, math.Cos, -pi / 2, pi / 2},
 		{"AsinAlt", AsinAlt, refAsin, math.Asin, 0, 1},
 		{"SqrtAlt", SqrtAlt, refSqrt, math.Sqrt, 0, 1},
-		//{"SinGo", math.Sin, refSin},
-		//{"CosGo", math.Cos, refCos},
-		//{"AsinGo", math.Asin, refAsin},
-		//{"SqrtGo", math.Sqrt, refSqrt},
 	}
 
 	for i, tt := range funcs {
@@ -305,11 +302,46 @@ func TestFunctions() {
 	pt.PrintResults()
 }
 
+func TestSinFunctions() {
+	type fnDef struct {
+		name string
+		fn   func(float64) float64
+	}
+	funcs := []fnDef{
+		{"SinQ", SinQ},
+		{"SinAlt", SinAlt},
+	}
+
+	for n := 3; n < 20; n++ {
+		funcs = append(
+			funcs,
+			fnDef{fmt.Sprintf("SinTaylor%d", n), SinTaylorN(n)},
+			fnDef{fmt.Sprintf("SinTaylorHorner%d", n), SinTaylorHornerN(n)},
+		)
+	}
+
+	for i, tt := range funcs {
+		if i != 0 {
+			fmt.Println()
+		}
+		TestReferenceTable(tt.name, tt.fn, refSin)
+	}
+
+	var pt PrecisionTester
+	for pt.Step(-pi, pi, 10_000_000) {
+		for _, tt := range funcs {
+			pt.Test(math.Sin(pt.InputVal), tt.fn(pt.InputVal), "%s", tt.name)
+		}
+	}
+
+	pt.PrintResults()
+}
+
 func TestReferenceTable(name string, fn func(float64) float64, reference []referenceEntry) {
 	fmt.Printf("\n=== %s ===\n", name)
 	for _, ref := range reference {
-		fmt.Printf("func(%+.16f) = %+.16f [reference]\n", ref.input, ref.output)
+		fmt.Printf("func(%+.24f) = %+.24f [reference]\n", ref.input, ref.output)
 		got := fn(ref.input)
-		fmt.Printf("                          = %+.16f [%+.16f] [%s]\n", got, ref.output-got, name)
+		fmt.Printf("                                  = %+.24f [%+.24f] [%s]\n", got, ref.output-got, name)
 	}
 }

@@ -43,22 +43,14 @@ func SinQ(x float64) float64 {
 	return x
 }
 
-func factorial(n int) int {
-	m := n
-	for n > 1 {
-		n--
-		m *= n
+func factorial(n int) float64 {
+	a := float64(1)
+	m := float64(n)
+	for m > 0 {
+		a *= m
+		m--
 	}
-	return m
-}
-
-func pow(x float64, p int) float64 {
-	y := float64(1)
-	for p > 0 {
-		y *= x
-		p--
-	}
-	return y
+	return a
 }
 
 func SinTaylorN(n int) func(float64) float64 {
@@ -67,13 +59,35 @@ func SinTaylorN(n int) func(float64) float64 {
 	}
 }
 
+func SinTaylorHornerN(n int) func(float64) float64 {
+	return func(x float64) float64 {
+		return SinTaylorHorner(x, n)
+	}
+}
+
+// Return coefficient for nth term
+func sinTaylorCoeff(n int) float64 {
+	sign := float64(1 - 2*(n&1))
+	return sign / factorial(2*n+1)
+}
+
 func SinTaylor(x float64, n int) float64 {
 	y := float64(0)
-	sign := float64(-1)
+	x2 := x * x
 	for i := range n {
-		sign *= -1
-		y += sign * pow(x, 2*i+1) / float64(factorial(2*i+1))
+		y += x * sinTaylorCoeff(i)
+		x *= x2
 	}
+	return y
+}
+
+func SinTaylorHorner(x float64, n int) float64 {
+	x2 := x * x
+	y := float64(0)
+	for i := n; i > 0; i-- {
+		y = y*x2 + sinTaylorCoeff(i-1)
+	}
+	y *= x
 	return y
 }
 
