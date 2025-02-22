@@ -43,6 +43,40 @@ func SinQ(x float64) float64 {
 	return x
 }
 
+func factorial(n int) int {
+	m := n
+	for n > 1 {
+		n--
+		m *= n
+	}
+	return m
+}
+
+func pow(x float64, p int) float64 {
+	y := float64(1)
+	for p > 0 {
+		y *= x
+		p--
+	}
+	return y
+}
+
+func SinTaylorN(n int) func(float64) float64 {
+	return func(x float64) float64 {
+		return SinTaylor(x, n)
+	}
+}
+
+func SinTaylor(x float64, n int) float64 {
+	y := float64(0)
+	sign := float64(-1)
+	for i := range n {
+		sign *= -1
+		y += sign * pow(x, 2*i+1) / float64(factorial(2*i+1))
+	}
+	return y
+}
+
 // SinAlt approximates sin(x) for x \in [-pi, pi] by two parabolas.
 func SinAlt(x float64) float64 {
 	assertRange(x, -pi, pi)

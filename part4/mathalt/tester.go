@@ -270,6 +270,15 @@ func TestFunctions() {
 	}{
 		{"SinQ", SinQ, refSin, math.Sin, -pi, pi},
 		{"SinAlt", SinAlt, refSin, math.Sin, -pi, pi},
+		{"SinTaylor3", SinTaylorN(3), refSin, math.Sin, -pi, pi},
+		{"SinTaylor5", SinTaylorN(5), refSin, math.Sin, -pi, pi},
+		{"SinTaylor7", SinTaylorN(7), refSin, math.Sin, -pi, pi},
+		{"SinTaylor9", SinTaylorN(9), refSin, math.Sin, -pi, pi},
+		{"SinTaylor11", SinTaylorN(11), refSin, math.Sin, -pi, pi},
+		{"SinTaylor13", SinTaylorN(13), refSin, math.Sin, -pi, pi},
+		{"SinTaylor15", SinTaylorN(15), refSin, math.Sin, -pi, pi},
+		{"SinTaylor17", SinTaylorN(17), refSin, math.Sin, -pi, pi},
+		{"SinTaylor19", SinTaylorN(19), refSin, math.Sin, -pi, pi},
 		{"CosAlt", CosAlt, refCos, math.Cos, -pi / 2, pi / 2},
 		{"AsinAlt", AsinAlt, refAsin, math.Asin, 0, 1},
 		{"SqrtAlt", SqrtAlt, refSqrt, math.Sqrt, 0, 1},
@@ -288,8 +297,8 @@ func TestFunctions() {
 
 	pt := PrecisionTester{}
 	for _, tt := range funcs {
-		for pt.Step(tt.x0, tt.x1, 100_000_000) {
-			pt.Test(tt.refImpl(pt.InputVal), tt.fn(pt.InputVal), tt.name)
+		for pt.Step(tt.x0, tt.x1, 10_000_000) {
+			pt.Test(tt.refImpl(pt.InputVal), tt.fn(pt.InputVal), "%s", tt.name)
 		}
 	}
 

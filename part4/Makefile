@@ -1,4 +1,4 @@
-.PHONY: all mathtest full gen hav havnoprof havrun havrunnoprof debuggen debughav bench test clean
+.PHONY: all mathtest full gen hav havnoprof havrun havrunnoprof debuggen debughav debugmath bench test clean
 all: mathtest
 mathtest:
 	@go run ./cmd/mathtest
@@ -24,6 +24,8 @@ debuggen:
 debughav:
 	@go build -gcflags="-N" ./cmd/haversine
 	@gdlv exec ./haversine ./tmp/output.json ./tmp/output.f64
+debugmath:
+	@gdlv run ./cmd/mathtest
 bench:
 	@go test -bench=. ./...
 test:
