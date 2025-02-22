@@ -6,6 +6,9 @@ if __name__ == "__main__":
     asinargs = np.random.rand(20)
     sqrtargs = np.random.rand(20)
 
+    for x in [trigargs, asinargs, sqrtargs]:
+        x.sort()
+
     for t in [
         ("Sin", np.sin, trigargs),
         ("Cos", np.cos, trigargs),
