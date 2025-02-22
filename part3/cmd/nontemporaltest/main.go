@@ -110,6 +110,7 @@ func main() {
 
 	var results []reptest.FinalTestResults
 	for i, testSpec := range TestSpecs {
+		clear(outbuf)
 		rt := &testers[i]
 		fmt.Printf("\n--- %s (%s) ---\n", testSpec.Name, readableBytes(testSpec.ChunkSize))
 		rt.NewTestWave(outputBufSz, freqReport.EstFreq, 10)
@@ -121,6 +122,13 @@ func main() {
 		}
 		res := rt.FinalTestResults()
 		results = append(results, res)
+
+		// Verify output buffer
+		for j, x := range outbuf {
+			if byte(uint64(j)%testSpec.ChunkSize) != x {
+				panic("invalid copy")
+			}
+		}
 	}
 
 	var w io.Writer
