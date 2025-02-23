@@ -317,6 +317,7 @@ func TestSinFunctions() {
 			funcs,
 			fnDef{fmt.Sprintf("SinTaylor%d", n), SinTaylorN(n)},
 			fnDef{fmt.Sprintf("SinTaylorHorner%d", n), SinTaylorHornerN(n)},
+			fnDef{fmt.Sprintf("SinTaylorHornerFMA%d", n), SinTaylorHornerFMAN(n)},
 		)
 	}
 
