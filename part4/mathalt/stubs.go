@@ -3,3 +3,5 @@
 package mathalt
 
 func SqrtAlt(x float64) float64
+
+func FMAAlt(x float64, y float64, z float64) float64

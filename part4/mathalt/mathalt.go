@@ -72,6 +72,12 @@ func SinTaylorHornerFMAN(n int) func(float64) float64 {
 	}
 }
 
+func SinTaylorHornerFMAAltN(n int) func(float64) float64 {
+	return func(x float64) float64 {
+		return SinTaylorHornerFMAAlt(x, n)
+	}
+}
+
 // Return coefficient for nth term
 func sinTaylorCoeff(n int) float64 {
 	sign := float64(1 - 2*(n&1))
@@ -103,6 +109,16 @@ func SinTaylorHornerFMA(x float64, n int) float64 {
 	y := float64(0)
 	for i := n; i > 0; i-- {
 		y = math.FMA(y, x2, sinTaylorCoeff(i-1))
+	}
+	y *= x
+	return y
+}
+
+func SinTaylorHornerFMAAlt(x float64, n int) float64 {
+	x2 := x * x
+	y := float64(0)
+	for i := n; i > 0; i-- {
+		y = FMAAlt(y, x2, sinTaylorCoeff(i-1))
 	}
 	y *= x
 	return y

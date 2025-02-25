@@ -1,6 +1,7 @@
 .PHONY: all mathtest full gen hav havnoprof havrun havrunnoprof debuggen debughav debugmath bench test clean
 all: mathtest
 mathtest:
+	@go generate ./...
 	@GOAMD64=v3 go build ./cmd/mathtest
 	@./mathtest
 full: gen hav

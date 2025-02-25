@@ -9,3 +9,13 @@ TEXT ·SqrtAlt(SB), NOSPLIT, $0-16
 	SQRTSD X0, X0
 	MOVSD  X0, ret+8(FP)
 	RET
+
+// func FMAAlt(x float64, y float64, z float64) float64
+// Requires: FMA3, SSE2
+TEXT ·FMAAlt(SB), NOSPLIT, $0-32
+	MOVSD       x+0(FP), X0
+	MOVSD       y+8(FP), X1
+	MOVSD       z+16(FP), X2
+	VFMADD231SD X0, X1, X2
+	MOVSD       X2, ret+24(FP)
+	RET
