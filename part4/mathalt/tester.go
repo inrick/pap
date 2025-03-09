@@ -315,13 +315,21 @@ func TestSinFunctions() {
 	for n := 3; n < 20; n++ {
 		funcs = append(
 			funcs,
-			fnDef{fmt.Sprintf("SinTaylor%d", n), SinTaylorN(n)},
-			fnDef{fmt.Sprintf("SinTaylorHorner%d", n), SinTaylorHornerN(n)},
-			fnDef{fmt.Sprintf("SinTaylorHornerFMA%d", n), SinTaylorHornerFMAN(n)},
+			//fnDef{fmt.Sprintf("SinTaylor%d", n), SinTaylorN(n)},
+			//fnDef{fmt.Sprintf("SinTaylorHorner%d", n), SinTaylorHornerN(n)},
+			//fnDef{fmt.Sprintf("SinTaylorHornerFMA%d", n), SinTaylorHornerFMAN(n)},
 			//fnDef{fmt.Sprintf("SinTaylorHornerFMAAlt%d", n), SinTaylorHornerFMAAltN(n)},
-			fnDef{fmt.Sprintf("SinTaylorHornerFMAPre%d", n), SinTaylorFunc(SinTaylorPre, n)},
+			fnDef{fmt.Sprintf("SinTaylorPre%d", n), SinTaylorFunc(SinTaylorPre, n)},
 		)
 	}
+
+	for n := 3; n < 12; n++ {
+		funcs = append(
+			funcs,
+			fnDef{fmt.Sprintf("SinMFTWP%d", n), SinTaylorFunc(SinMFTWP, n)},
+		)
+	}
+	funcs = append(funcs, fnDef{"SinMFTWP_Manual9", SinMFTWP_Manual9})
 
 	for i, tt := range funcs {
 		if i != 0 {
