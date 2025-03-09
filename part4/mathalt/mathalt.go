@@ -11,6 +11,42 @@ const (
 	mathAssert = true
 )
 
+// Generated using PrintSinTaylorCoeffs
+var sinTaylorCoeffsArray = []float64{
+	0x1p+00,
+	-0x1.5555555555555p-03,
+	0x1.1111111111111p-07,
+	-0x1.a01a01a01a01ap-13,
+	0x1.71de3a556c734p-19,
+	-0x1.ae64567f544e4p-26,
+	0x1.6124613a86d09p-33,
+	-0x1.ae7f3e733b81fp-41,
+	0x1.952c77030ad4ap-49,
+	-0x1.2f49b46814157p-57,
+	0x1.71b8ef6dcf572p-66,
+	-0x1.761b413163819p-75,
+	0x1.3f3ccdd165faap-84,
+	-0x1.d1ab1c2dccea3p-94,
+	0x1.259f98b4358aep-103,
+	-0x1.434d2e783f5bcp-113,
+	0x1.3981254dd0d5p-123,
+	-0x1.0dc59c716d91fp-133,
+	0x1.9ec8d1c94e85bp-144,
+	-0x1.1e99449a4bacdp-154,
+	0x1.65e61c39d0243p-165,
+	-0x1.95db45257e511p-176,
+	0x1.a3cb872220647p-187,
+	-0x1.8da8e0a127eb7p-198,
+	0x1.5a42f0dfeb083p-209,
+	-0x1.161872bf7b825p-220,
+	0x1.9d4f1058674e2p-232,
+	-0x1.1d008faac5c55p-243,
+	0x1.6db793c887b95p-255,
+	-0x1.b5bfc17fa97d4p-267,
+	0x1.e9e56d649f76bp-279,
+	-0x1.00dcf6a320e1dp-290,
+}
+
 func abs(x float64) float64 {
 	if x < 0 {
 		return -x
@@ -52,6 +88,12 @@ func factorial(n int) float64 {
 		m--
 	}
 	return a
+}
+
+func SinTaylorFunc(fn func(float64, int) float64, n int) func(float64) float64 {
+	return func(x float64) float64 {
+		return fn(x, n)
+	}
 }
 
 func SinTaylorN(n int) func(float64) float64 {
@@ -114,6 +156,16 @@ func SinTaylorHornerFMA(x float64, n int) float64 {
 	return y
 }
 
+func SinTaylorPre(x float64, n int) float64 {
+	x2 := x * x
+	y := float64(0)
+	for i := n; i > 0; i-- {
+		y = math.FMA(y, x2, sinTaylorCoeffsArray[i-1])
+	}
+	y *= x
+	return y
+}
+
 func SinTaylorHornerFMAAlt(x float64, n int) float64 {
 	x2 := x * x
 	y := float64(0)
@@ -151,4 +203,12 @@ func CosAlt(x float64) float64 {
 
 func AsinAlt(x float64) float64 {
 	return x
+}
+
+func PrintSinTaylorCoeffs(n int) {
+	fmt.Printf("var sinTaylorCoeffsArray = []float64{\n")
+	for i := range n {
+		fmt.Printf("	%x,\n", sinTaylorCoeff(i))
+	}
+	fmt.Printf("}\n")
 }

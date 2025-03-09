@@ -318,7 +318,8 @@ func TestSinFunctions() {
 			fnDef{fmt.Sprintf("SinTaylor%d", n), SinTaylorN(n)},
 			fnDef{fmt.Sprintf("SinTaylorHorner%d", n), SinTaylorHornerN(n)},
 			fnDef{fmt.Sprintf("SinTaylorHornerFMA%d", n), SinTaylorHornerFMAN(n)},
-			fnDef{fmt.Sprintf("SinTaylorHornerFMAAlt%d", n), SinTaylorHornerFMAAltN(n)},
+			//fnDef{fmt.Sprintf("SinTaylorHornerFMAAlt%d", n), SinTaylorHornerFMAAltN(n)},
+			fnDef{fmt.Sprintf("SinTaylorHornerFMAPre%d", n), SinTaylorFunc(SinTaylorPre, n)},
 		)
 	}
 
