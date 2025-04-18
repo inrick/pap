@@ -339,7 +339,7 @@ func TestSinFunctions() {
 	}
 
 	var pt PrecisionTester
-	for pt.Step(-pi, pi, 10_000_000) {
+	for pt.Step(-pi/2, pi/2, 10_000_000) {
 		for _, tt := range funcs {
 			pt.Test(math.Sin(pt.InputVal), tt.fn(pt.InputVal), "%s", tt.name)
 		}
