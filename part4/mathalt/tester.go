@@ -302,31 +302,32 @@ func TestFunctions() {
 	pt.PrintResults()
 }
 
+type fnDef struct {
+	name string
+	fn   func(float64) float64
+}
+
 func TestSinFunctions() {
-	type fnDef struct {
-		name string
-		fn   func(float64) float64
-	}
 	funcs := []fnDef{
 		{"SinQ", SinQ},
 		{"SinAlt", SinAlt},
 	}
 
-	for n := 3; n < 20; n++ {
+	for n := 3; n < 10; n++ {
 		funcs = append(
 			funcs,
 			//fnDef{fmt.Sprintf("SinTaylor%d", n), SinTaylorN(n)},
 			//fnDef{fmt.Sprintf("SinTaylorHorner%d", n), SinTaylorHornerN(n)},
 			//fnDef{fmt.Sprintf("SinTaylorHornerFMA%d", n), SinTaylorHornerFMAN(n)},
 			//fnDef{fmt.Sprintf("SinTaylorHornerFMAAlt%d", n), SinTaylorHornerFMAAltN(n)},
-			fnDef{fmt.Sprintf("SinTaylorPre%d", n), SinTaylorFunc(SinTaylorPre, n)},
+			fnDef{fmt.Sprintf("SinTaylorPre%d", n), FixN(SinTaylorPre, n)},
 		)
 	}
 
 	for n := 3; n < 12; n++ {
 		funcs = append(
 			funcs,
-			fnDef{fmt.Sprintf("SinMFTWP%d", n), SinTaylorFunc(SinMFTWP, n)},
+			fnDef{fmt.Sprintf("SinMFTWP%d", n), FixN(SinMFTWP, n)},
 		)
 	}
 	funcs = append(funcs, fnDef{"SinMFTWP_Manual9", SinMFTWP_Manual9})
@@ -342,6 +343,33 @@ func TestSinFunctions() {
 	for pt.Step(-pi/2, pi/2, 10_000_000) {
 		for _, tt := range funcs {
 			pt.Test(math.Sin(pt.InputVal), tt.fn(pt.InputVal), "%s", tt.name)
+		}
+	}
+
+	pt.PrintResults()
+}
+
+func TestAsinFunctions() {
+	var funcs []fnDef
+	for n := 3; n < 23; n++ {
+		funcs = append(
+			funcs,
+			fnDef{fmt.Sprintf("AsinMFTWP%d", n), FixN(AsinMFTWP, n)},
+		)
+	}
+
+	for i, tt := range funcs {
+		if i != 0 {
+			fmt.Println()
+		}
+		TestReferenceTable(tt.name, tt.fn, refAsin)
+	}
+
+	var pt PrecisionTester
+	// The given coefficients target asin in [0, 1/sqrt(2)].
+	for pt.Step(0, 1/math.Sqrt(2), 10_000_000) {
+		for _, tt := range funcs {
+			pt.Test(math.Asin(pt.InputVal), tt.fn(pt.InputVal), "%s", tt.name)
 		}
 	}
 
