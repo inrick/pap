@@ -269,17 +269,7 @@ func TestFunctions() {
 		refImpl func(float64) float64
 		x0, x1  float64
 	}{
-		{"SinQ", SinQ, refSin, math.Sin, -pi, pi},
-		{"SinAlt", SinAlt, refSin, math.Sin, -pi, pi},
-		{"SinTaylor3", SinTaylorN(3), refSin, math.Sin, -pi, pi},
-		{"SinTaylor4", SinTaylorN(4), refSin, math.Sin, -pi, pi},
-		{"SinTaylor5", SinTaylorN(5), refSin, math.Sin, -pi, pi},
-		{"SinTaylor6", SinTaylorN(6), refSin, math.Sin, -pi, pi},
-		{"SinTaylor7", SinTaylorN(7), refSin, math.Sin, -pi, pi},
-		{"SinTaylor8", SinTaylorN(8), refSin, math.Sin, -pi, pi},
-		{"SinTaylor9", SinTaylorN(9), refSin, math.Sin, -pi, pi},
-		{"SinTaylor10", SinTaylorN(10), refSin, math.Sin, -pi, pi},
-		{"SinTaylor11", SinTaylorN(11), refSin, math.Sin, -pi, pi},
+		{"SinMFTWP_Manual9", SinMFTWP_Manual9, refSin, math.Sin, -pi, pi},
 		{"CosAlt", CosAlt, refCos, math.Cos, -pi / 2, pi / 2},
 		{"AsinAlt", AsinAlt, refAsin, math.Asin, 0, 1},
 		{"SqrtAlt", SqrtAlt, refSqrt, math.Sqrt, 0, 1},
@@ -366,8 +356,7 @@ func TestAsinFunctions() {
 	}
 
 	var pt PrecisionTester
-	// The given coefficients target asin in [0, 1/sqrt(2)].
-	for pt.Step(0, 1/math.Sqrt(2), 10_000_000) {
+	for pt.Step(0, 1, 10_000_000) {
 		for _, tt := range funcs {
 			pt.Test(math.Asin(pt.InputVal), tt.fn(pt.InputVal), "%s", tt.name)
 		}

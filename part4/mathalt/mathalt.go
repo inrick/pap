@@ -273,16 +273,57 @@ func CosAlt(x float64) float64 {
 }
 
 func AsinAlt(x float64) float64 {
+	x2 := x * x
+	rescaled := false
+	// The approximation of arcsine is only good in [0, 1/sqrt(2)), utilize the
+	// identity `arcsin(x) = pi/2 - arcsin(sqrt(1-x^2))` to rescale the input.
+	if x >= 1/SqrtAlt(2) {
+		x = SqrtAlt(1 - x2)
+		rescaled = true
+	}
+	y := float64(0)
+	y = math.FMA(y, x2, 0x1.7f820d52c2775p-1)
+	y = math.FMA(y, x2, -0x1.4d84801ff1aa1p1)
+	y = math.FMA(y, x2, 0x1.14672d35db97ep2)
+	y = math.FMA(y, x2, -0x1.188f223fe5f34p2)
+	y = math.FMA(y, x2, 0x1.86bbff2a6c7b6p1)
+	y = math.FMA(y, x2, -0x1.83633c76e4551p0)
+	y = math.FMA(y, x2, 0x1.224c4dbe13cbdp-1)
+	y = math.FMA(y, x2, -0x1.2ab04ba9012e3p-3)
+	y = math.FMA(y, x2, 0x1.5565a3d3908b9p-5)
+	y = math.FMA(y, x2, 0x1.b1b8d27cd7e72p-8)
+	y = math.FMA(y, x2, 0x1.dc086c5d99cdcp-7)
+	y = math.FMA(y, x2, 0x1.1b8cc838ee86ep-6)
+	y = math.FMA(y, x2, 0x1.6e96be6dbe49ep-6)
+	y = math.FMA(y, x2, 0x1.f1c6b0ea300d7p-6)
+	y = math.FMA(y, x2, 0x1.6db6dca9f82d4p-5)
+	y = math.FMA(y, x2, 0x1.3333333148aa7p-4)
+	y = math.FMA(y, x2, 0x1.555555555683fp-3)
+	y = math.FMA(y, x2, 0x1.fffffffffffffp-1)
+	y *= x
+	if rescaled {
+		y = pi/2 - y
+	}
 	return x
 }
 
 func AsinMFTWP(x float64, n int) float64 {
 	x2 := x * x
+	rescaled := false
+	// The approximation of arcsine is only good in [0, 1/sqrt(2)), utilize the
+	// identity `arcsin(x) = pi/2 - arcsin(sqrt(1-x^2))` to rescale the input.
+	if x >= 1/SqrtAlt(2) {
+		x = SqrtAlt(1 - x2)
+		rescaled = true
+	}
 	y := float64(0)
 	for i := n; i > 0; i-- {
 		y = math.FMA(y, x2, ArcsineRadiansC_MFTWP[n][i-1])
 	}
 	y *= x
+	if rescaled {
+		y = pi/2 - y
+	}
 	return y
 }
 
