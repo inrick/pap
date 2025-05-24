@@ -9,6 +9,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"runtime"
 	"unsafe"
 
 	"part4/internal"
@@ -404,9 +405,8 @@ func ReadReference(r io.Reader) ([]float64, error) {
 		return nil, ErrTooFew
 	}
 	dists := make([]float64, N)
-	for i := range dists {
-		// Again, remember to offset an extra 8 bytes.
-		dists[i] = *(*float64)(unsafe.Pointer(&buf[8+8*i]))
-	}
+	// Again, remember to offset an extra 8 bytes.
+	copy(dists, unsafe.Slice((*float64)(unsafe.Pointer(&buf[8])), N))
+	runtime.KeepAlive(buf)
 	return dists, nil
 }
