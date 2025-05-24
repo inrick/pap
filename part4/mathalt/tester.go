@@ -269,7 +269,7 @@ func TestFunctions() {
 		refImpl func(float64) float64
 		x0, x1  float64
 	}{
-		{"SinMFTWP_Manual9", SinMFTWP_Manual9, refSin, math.Sin, -pi, pi},
+		{"SinAlt", SinAlt, refSin, math.Sin, -pi, pi},
 		{"CosAlt", CosAlt, refCos, math.Cos, -pi / 2, pi / 2},
 		{"AsinAlt", AsinAlt, refAsin, math.Asin, 0, 1},
 		{"SqrtAlt", SqrtAlt, refSqrt, math.Sqrt, 0, 1},
@@ -299,8 +299,8 @@ type fnDef struct {
 
 func TestSinFunctions() {
 	funcs := []fnDef{
-		{"SinQ", SinQ},
-		{"SinAlt", SinAlt},
+		{"SinParabolaNaive", SinParabolaNaive},
+		{"SinParabolasNaive", SinParabolasNaive},
 	}
 
 	for n := 3; n < 10; n++ {

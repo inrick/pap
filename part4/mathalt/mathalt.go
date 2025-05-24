@@ -105,7 +105,11 @@ func assertRange(x, lo, hi float64) {
 	}
 }
 
-func SinQ(x float64) float64 {
+func SinAlt(x float64) float64  { return SinMFTWP_Manual9(x) }
+func CosAlt(x float64) float64  { return SinAlt(x + pi/2) }
+func AsinAlt(x float64) float64 { return AsinMFTWP_Manual(x) }
+
+func SinParabolaNaive(x float64) float64 {
 	assertRange(x, -pi, pi)
 	f := func(x float64) float64 {
 		return 4 * x * (pi - x) / (pi * pi)
@@ -247,8 +251,8 @@ func SinTaylorHornerFMAAlt(x float64, n int) float64 {
 	return y
 }
 
-// SinAlt approximates sin(x) for x \in [-pi, pi] by two parabolas.
-func SinAlt(x float64) float64 {
+// SinParabolasNaive approximates sin(x) for x \in [-pi, pi] by two parabolas.
+func SinParabolasNaive(x float64) float64 {
 	assertRange(x, -pi, pi)
 
 	ax := abs(x)
@@ -259,8 +263,8 @@ func SinAlt(x float64) float64 {
 	return y
 }
 
-// CosAlt approximates cos(x) for x \in [-pi/2, pi]
-func CosAlt(x float64) float64 {
+// CosParabolaNaive approximates cos(x) for x \in [-pi/2, pi]
+func CosParabolaNaive(x float64) float64 {
 	assertRange(x, -pi/2-1e8, pi)
 
 	switch {
@@ -272,7 +276,7 @@ func CosAlt(x float64) float64 {
 	return x
 }
 
-func AsinAlt(x float64) float64 {
+func AsinMFTWP_Manual(x float64) float64 {
 	x2 := x * x
 	rescaled := false
 	// The approximation of arcsine is only good in [0, 1/sqrt(2)), utilize the
