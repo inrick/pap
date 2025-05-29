@@ -106,8 +106,15 @@ func assertRange(x, lo, hi float64) {
 }
 
 // Redirects to the chosen set of custom implementations.
-func SinAlt(x float64) float64  { return SinMFTWP_Manual9(x) }
-func CosAlt(x float64) float64  { return SinAlt(x + Pi/2) }
+func SinAlt(x float64) float64 { return SinMFTWP_Manual9(x) }
+func CosAlt(x float64) float64 {
+	switch {
+	case x <= 0:
+		return SinAlt(x + Pi/2)
+	default:
+		return -SinAlt(x - Pi/2)
+	}
+}
 func AsinAlt(x float64) float64 { return AsinMFTWP_Manual(x) }
 
 func SinParabolaNaive(x float64) float64 {
