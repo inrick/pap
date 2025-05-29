@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	pi = 3.1415926535897
+	Pi = 3.1415926535897
 
 	mathAssert = true
 )
@@ -105,24 +105,25 @@ func assertRange(x, lo, hi float64) {
 	}
 }
 
+// Redirects to the chosen set of custom implementations.
 func SinAlt(x float64) float64  { return SinMFTWP_Manual9(x) }
-func CosAlt(x float64) float64  { return SinAlt(x + pi/2) }
+func CosAlt(x float64) float64  { return SinAlt(x + Pi/2) }
 func AsinAlt(x float64) float64 { return AsinMFTWP_Manual(x) }
 
 func SinParabolaNaive(x float64) float64 {
-	assertRange(x, -pi, pi)
+	assertRange(x, -Pi, Pi)
 	f := func(x float64) float64 {
-		return 4 * x * (pi - x) / (pi * pi)
+		return 4 * x * (Pi - x) / (Pi * Pi)
 	}
 	switch {
-	case pi/2 <= x && x <= pi:
-		return f(pi/2 - x)
-	case 0 <= x && x < pi/2:
+	case Pi/2 <= x && x <= Pi:
+		return f(Pi/2 - x)
+	case 0 <= x && x < Pi/2:
 		return f(x)
-	case -pi/2 <= x && x < 0:
+	case -Pi/2 <= x && x < 0:
 		return -f(-x)
-	case -pi <= x && x < -pi/2:
-		return -f(pi/2 + x)
+	case -Pi <= x && x < -Pi/2:
+		return -f(Pi/2 + x)
 	}
 	return x
 }
@@ -253,10 +254,10 @@ func SinTaylorHornerFMAAlt(x float64, n int) float64 {
 
 // SinParabolasNaive approximates sin(x) for x \in [-pi, pi] by two parabolas.
 func SinParabolasNaive(x float64) float64 {
-	assertRange(x, -pi, pi)
+	assertRange(x, -Pi, Pi)
 
 	ax := abs(x)
-	y := 4 * ax * (pi - ax) / (pi * pi)
+	y := 4 * ax * (Pi - ax) / (Pi * Pi)
 	if x < 0 {
 		return -y
 	}
@@ -265,26 +266,25 @@ func SinParabolasNaive(x float64) float64 {
 
 // CosParabolaNaive approximates cos(x) for x \in [-pi/2, pi]
 func CosParabolaNaive(x float64) float64 {
-	assertRange(x, -pi/2-1e8, pi)
+	assertRange(x, -Pi/2-1e8, Pi)
 
 	switch {
-	case x <= pi/2:
-		return -(2*x + pi) * (2*x - pi) / (pi * pi)
-	case x > pi/2:
-		return (2*x - pi) * (2*x - 3*pi) / (pi * pi)
+	case x <= Pi/2:
+		return -(2*x + Pi) * (2*x - Pi) / (Pi * Pi)
+	case x > Pi/2:
+		return (2*x - Pi) * (2*x - 3*Pi) / (Pi * Pi)
 	}
 	return x
 }
 
 func AsinMFTWP_Manual(x float64) float64 {
-	x2 := x * x
-	rescaled := false
+	rescale := x >= 1/SqrtAlt(2)
 	// The approximation of arcsine is only good in [0, 1/sqrt(2)), utilize the
 	// identity `arcsin(x) = pi/2 - arcsin(sqrt(1-x^2))` to rescale the input.
-	if x >= 1/SqrtAlt(2) {
-		x = SqrtAlt(1 - x2)
-		rescaled = true
+	if rescale {
+		x = SqrtAlt(1 - x*x)
 	}
+	x2 := x * x
 	y := float64(0)
 	y = math.FMA(y, x2, 0x1.7f820d52c2775p-1)
 	y = math.FMA(y, x2, -0x1.4d84801ff1aa1p1)
@@ -305,28 +305,27 @@ func AsinMFTWP_Manual(x float64) float64 {
 	y = math.FMA(y, x2, 0x1.555555555683fp-3)
 	y = math.FMA(y, x2, 0x1.fffffffffffffp-1)
 	y *= x
-	if rescaled {
-		y = pi/2 - y
+	if rescale {
+		y = Pi/2 - y
 	}
-	return x
+	return y
 }
 
 func AsinMFTWP(x float64, n int) float64 {
-	x2 := x * x
-	rescaled := false
+	rescale := x >= 1/SqrtAlt(2)
 	// The approximation of arcsine is only good in [0, 1/sqrt(2)), utilize the
 	// identity `arcsin(x) = pi/2 - arcsin(sqrt(1-x^2))` to rescale the input.
-	if x >= 1/SqrtAlt(2) {
-		x = SqrtAlt(1 - x2)
-		rescaled = true
+	if rescale {
+		x = SqrtAlt(1 - x*x)
 	}
+	x2 := x * x
 	y := float64(0)
 	for i := n; i > 0; i-- {
 		y = math.FMA(y, x2, ArcsineRadiansC_MFTWP[n][i-1])
 	}
 	y *= x
-	if rescaled {
-		y = pi/2 - y
+	if rescale {
+		y = Pi/2 - y
 	}
 	return y
 }

@@ -269,8 +269,8 @@ func TestFunctions() {
 		refImpl func(float64) float64
 		x0, x1  float64
 	}{
-		{"SinAlt", SinAlt, refSin, math.Sin, -pi, pi},
-		{"CosAlt", CosAlt, refCos, math.Cos, -pi / 2, pi / 2},
+		{"SinAlt", SinAlt, refSin, math.Sin, -Pi / 2, Pi / 2},
+		{"CosAlt", CosAlt, refCos, math.Cos, -Pi / 2, Pi},
 		{"AsinAlt", AsinAlt, refAsin, math.Asin, 0, 1},
 		{"SqrtAlt", SqrtAlt, refSqrt, math.Sqrt, 0, 1},
 	}
@@ -330,7 +330,7 @@ func TestSinFunctions() {
 	}
 
 	var pt PrecisionTester
-	for pt.Step(-pi/2, pi/2, 10_000_000) {
+	for pt.Step(-Pi/2, Pi/2, 10_000_000) {
 		for _, tt := range funcs {
 			pt.Test(math.Sin(pt.InputVal), tt.fn(pt.InputVal), "%s", tt.name)
 		}

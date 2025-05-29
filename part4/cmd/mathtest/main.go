@@ -1,10 +1,23 @@
 package main
 
-import "part4/mathalt"
+import (
+	"os"
+	"part4/mathalt"
+)
 
 func main() {
-	mathalt.TestFunctions()
-	//mathalt.TestAsinFunctions()
-	//mathalt.TestSinFunctions()
-	//mathalt.PrintSinTaylorCoeffs(32)
+	var arg string
+	if len(os.Args) > 1 {
+		arg = os.Args[1]
+	}
+	switch arg {
+	case "asin":
+		mathalt.TestAsinFunctions()
+	case "sin":
+		mathalt.TestSinFunctions()
+	case "printsin":
+		mathalt.PrintSinTaylorCoeffs(32)
+	default:
+		mathalt.TestFunctions()
+	}
 }
