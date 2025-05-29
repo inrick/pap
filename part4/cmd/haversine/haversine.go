@@ -23,6 +23,14 @@ var (
 	ErrExpectedEof = errors.New("expected EOF")
 )
 
+var (
+	SinFn  func(float64) float64
+	CosFn  func(float64) float64
+	AsinFn func(float64) float64
+	SqrtFn func(float64) float64
+	Pi     float64
+)
+
 func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -37,7 +45,9 @@ func run() error {
 	log.SetFlags(0)
 	log.SetPrefix("[haversine] ")
 	var printFreq bool
+	var useReferenceMathFns bool
 	flag.BoolVar(&printFreq, "freq", false, "print estimated CPU frequency")
+	flag.BoolVar(&useReferenceMathFns, "refmath", false, "use reference math functions")
 	flag.Parse()
 	if printFreq {
 		internal.PrintCpuFrequency()
@@ -57,25 +67,41 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("%s failed to parse: %v", inputFile, err)
 	}
+
+	if useReferenceMathFns {
+		SinFn = math.Sin
+		CosFn = math.Cos
+		AsinFn = math.Asin
+		SqrtFn = math.Sqrt
+		Pi = math.Pi
+	} else {
+		SinFn = mathalt.SinAlt
+		CosFn = mathalt.CosAlt
+		AsinFn = mathalt.AsinAlt
+		SqrtFn = mathalt.SqrtAlt
+		Pi = mathalt.Pi
+	}
+
 	dists, avg := Distances(pp)
 	if comparisonFile != "" {
 		distsRef, err := ReadReferenceFile(comparisonFile)
 		if err != nil {
 			return err
 		}
-		diffs, err := CompareReferenceFile(dists, avg, distsRef)
+		t, err := CompareReferenceFile(dists, avg, distsRef)
 		if err != nil {
 			return err
 		}
-		if len(diffs) == 0 {
+		if len(t.diffs) == 0 {
 			log.Print("result identical to reference file")
 		} else {
-			for _, d := range diffs {
-				log.Printf("difference detected in pair %d: %f != %f", d.idx, d.dist, d.distRef)
+			for _, d := range t.diffs {
+				log.Printf("difference detected in pair %d: %.16f != %.16f", d.idx, d.dist, d.distRef)
 			}
+			log.Printf("total diff=%.16f", t.total)
 		}
 	}
-	log.Printf("average=%f", avg)
+	log.Printf("average=%.16f", avg)
 	return nil
 }
 
@@ -91,22 +117,29 @@ func ReadInputFile(file string) ([]byte, error) {
 
 func CompareReferenceFile(
 	dists []float64, avg float64, distsRef []float64,
-) ([]Diff, error) {
+) (TotalDiff, error) {
 	expectedBytes := uint64(8 * (len(dists) + len(distsRef)))
 	defer profiler.End(profiler.BeginWithBandwidth(profiler.KindCompareReferenceFile, expectedBytes))
 	if N0, N1 := len(dists), len(distsRef); N0 != N1 {
-		return nil, fmt.Errorf("different length to comparison file: %d != %d", N0, N1)
+		return TotalDiff{}, fmt.Errorf("different length to comparison file: %d != %d", N0, N1)
 	}
 	var diffs []Diff
+	var total float64
 	for i, d0 := range dists {
 		d1 := distsRef[i]
 		// TODO: choose appropriate epsilon
 		const eps = 1e-9
-		if eps < math.Abs(d0-d1) {
+		if eps < mathalt.Abs(d0-d1) {
 			diffs = append(diffs, Diff{i, d0, d1})
+			total += d0 - d1
 		}
 	}
-	return diffs, nil
+	return TotalDiff{diffs: diffs, total: total}, nil
+}
+
+type TotalDiff struct {
+	diffs []Diff
+	total float64
 }
 
 type Diff struct {
@@ -304,7 +337,7 @@ func IsDigit(c byte) bool {
 }
 
 func Radians(deg float64) float64 {
-	return (math.Pi / 180) * deg
+	return (Pi / 180) * deg
 }
 
 var (
@@ -362,8 +395,8 @@ func Haversine(p Pair) float64 {
 	dLon := Radians(p.X1 - p.X0)
 	lat0 := Radians(p.Y0)
 	lat1 := Radians(p.Y1)
-	a := Square(mathalt.Sin(dLat/2)) + mathalt.Cos(lat0)*mathalt.Cos(lat1)*Square(mathalt.Sin(dLon/2))
-	c := 2 * mathalt.Asin(mathalt.Sqrt(a))
+	a := Square(SinFn(dLat/2)) + CosFn(lat0)*CosFn(lat1)*Square(SinFn(dLon/2))
+	c := 2 * AsinFn(SqrtFn(a))
 	return earthRadius * c
 }
 

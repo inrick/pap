@@ -34,6 +34,10 @@ func init() {
 	}
 }
 
+func Abs(x float64) float64 {
+	return math.Float64frombits(math.Float64bits(x) &^ (1 << 63))
+}
+
 // Wrappers around math functions that also record max/min of input.
 func Sin(x float64) float64 {
 	collectStat(&stats.Sin, x)
