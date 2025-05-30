@@ -109,10 +109,10 @@ func assertRange(x, lo, hi float64) {
 func SinAlt(x float64) float64 { return SinMFTWP_Manual9(x) }
 func CosAlt(x float64) float64 {
 	switch {
-	case x <= 0:
-		return SinAlt(x + Pi/2)
-	default:
+	case x > Pi/2:
 		return -SinAlt(x - Pi/2)
+	default:
+		return SinAlt(x + Pi/2)
 	}
 }
 func AsinAlt(x float64) float64 { return AsinMFTWP_Manual(x) }
@@ -231,11 +231,20 @@ func SinMFTWP(x float64, n int) float64 {
 	return y
 }
 
-func SinMFTWP_Manual9(x float64) float64 {
-	x2 := x * x
-	y := float64(0)
+func SinMFTWP_Manual9(x0 float64) float64 {
+	// We have an approximation of sin(x) for x \in [0, pi/2]. We may observe
+	// that if x \in [pi/2, pi] then sin(x) = sin(pi - x) where pi - x is in
+	// the original range.
+	//
+	// Furthermore, sin(x) = -sin(-x) allows us to extend the range to
+	// [-pi, pi].
+	x := math.Abs(x0)
+	if x > Pi/2 {
+		x = Pi - x
+	}
 
-	y = math.FMA(y, x2, 0x1.883c1c5deffbep-49)
+	x2 := x * x
+	y := float64(0x1.883c1c5deffbep-49)
 	y = math.FMA(y, x2, -0x1.ae43dc9bf8ba7p-41)
 	y = math.FMA(y, x2, 0x1.6123ce513b09fp-33)
 	y = math.FMA(y, x2, -0x1.ae6454d960ac4p-26)
@@ -245,6 +254,10 @@ func SinMFTWP_Manual9(x float64) float64 {
 	y = math.FMA(y, x2, -0x1.5555555555555p-3)
 	y = math.FMA(y, x2, 0x1p0)
 	y *= x
+
+	if x0 < 0 {
+		y = -y
+	}
 
 	return y
 }

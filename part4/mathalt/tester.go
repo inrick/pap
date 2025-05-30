@@ -269,8 +269,8 @@ func TestFunctions() {
 		refImpl func(float64) float64
 		x0, x1  float64
 	}{
-		{"SinAlt", SinAlt, refSin, math.Sin, -Pi / 2, Pi / 2},
-		{"CosAlt", CosAlt, refCos, math.Cos, -Pi / 2, Pi},
+		{"SinAlt", SinAlt, refSin, math.Sin, -Pi, Pi},
+		{"CosAlt", CosAlt, refCos, math.Cos, -Pi, Pi},
 		{"AsinAlt", AsinAlt, refAsin, math.Asin, 0, 1},
 		{"SqrtAlt", SqrtAlt, refSqrt, math.Sqrt, 0, 1},
 	}
